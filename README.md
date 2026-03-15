@@ -1,6 +1,6 @@
 # SGMTA - Sistema de Gestão e Monitorização de Testes Automatizados
 
-O **SGMTA** é uma plataforma de backend desenvolvida para centralizar a gestão e a monitorização de testes automatizados. O sistema atua como o elo de ligação entre equipas de qualidade (QA) e pipelines de integração contínua (CI/CD), permitindo a ingestão, armazenamento e análise de execuções de testes via Integração Machine-to-Machine (M2M) utilizando tokens estáticos.
+O **SGMTA** é uma plataforma em desenvolvimento para centralizar a gestão e a monitorização de testes automatizados. O sistema atua como o elo de ligação entre equipas de qualidade (QA) e pipelines de integração contínua (CI/CD), permitindo a ingestão, armazenamento e análise de execuções de testes via Integração Machine-to-Machine (M2M) utilizando tokens estáticos.
 
 ## Índice
 
@@ -17,8 +17,8 @@ O **SGMTA** é uma plataforma de backend desenvolvida para centralizar a gestão
 
 A arquitetura baseia-se nas seguintes tecnologias e frameworks:
 
-* **Linguagem:** [Java 17](https://adoptium.net/)
-* **Framework:** [Spring Boot 3](https://spring.io/projects/spring-boot) (Web, Data JPA, Validation)
+* **Linguagem:** [Java 21](https://adoptium.net/)
+* **Framework:** [Spring Boot 4](https://spring.io/projects/spring-boot) (Web, Data JPA, Validation)
 * **Segurança:** [Spring Security](https://spring.io/projects/spring-security) com [JSON Web Tokens (JWT)](https://jwt.io/) e BCrypt
 * **Base de Dados:** [PostgreSQL](https://www.postgresql.org/)
 * **Gestão de Dependências e Build:** [Apache Maven](https://maven.apache.org/)
@@ -30,12 +30,12 @@ A arquitetura baseia-se nas seguintes tecnologias e frameworks:
 
 O desenvolvimento segue uma abordagem modular baseada no Documento de Especificação de Requisitos (SRS). As seguintes funcionalidades encontram-se concluídas:
 
-### 1. Autenticação e Gestão de Utilizadores (RF.01, RF.02)
+### 1. Autenticação e Gestão de Utilizadores
 * Registo de utilizadores com encriptação de credenciais.
 * Geração de tokens JWT stateless para controlo de sessão.
 * Proteção de rotas através de filtros de segurança (`SecurityFilter`).
 
-### 2. Gestão de Projetos e Credenciais (RF.03)
+### 2. Gestão de Projetos e Credenciais 
 * Operações CRUD completas para a entidade `Project`.
 * Associação de equipas de desenvolvimento aos projetos (Relacionamento Many-to-Many otimizado com `Set`).
 * Geração automática de chaves de integração (API Keys) com prefixo dinâmico baseado no nome do projeto para garantir rastreabilidade.
@@ -48,7 +48,7 @@ O desenvolvimento segue uma abordagem modular baseada no Documento de Especifica
 
 Para compilar e executar o projeto no ambiente local, é necessário assegurar a instalação dos seguintes componentes:
 
-1. **Java Development Kit (JDK):** Versão 17 ou superior.
+1. **Java Development Kit (JDK):** Versão 21.
 2. **Apache Maven:** Para resolução de dependências e execução do ciclo de build.
 3. **PostgreSQL:** Servidor de base de dados relacional a escutar na porta `5432`.
 
@@ -56,9 +56,9 @@ Para compilar e executar o projeto no ambiente local, é necessário assegurar a
 
 ## Configuração do Ambiente
 
-O sistema depende de variáveis de ambiente para garantir o isolamento de credenciais. O ficheiro `src/main/resources/application.yml` está configurado para injetar estas variáveis. 
+O sistema depende de variáveis de ambiente para garantir o isolamento de credenciais. O ficheiro `src/main/resources/application.yaml` está configurado para injetar estas variáveis. 
 
-Certifique-se de configurar o seu ambiente local de acordo com o seguinte mapeamento:
+Configure o seu ambiente local de acordo com o seguinte mapeamento:
 
 ```yaml
 spring:
@@ -84,7 +84,7 @@ Siga os passos abaixo para iniciar a aplicação localmente utilizando a interfa
 
 1. **Clonar o repositório e navegar para a diretoria raiz:**
    ```bash
-   git clone <url-do-repositorio>
+   git clone https://github.com/brian-villa/test_observ
    cd sgmta
    ```
 
@@ -105,7 +105,7 @@ Siga os passos abaixo para iniciar a aplicação localmente utilizando a interfa
 
 Toda a superfície da API está rigorosamente documentada utilizando a especificação OpenAPI. O mapeamento inclui esquemas de validação, códigos de resposta HTTP e requisitos de segurança.
 
-Após o arranque bem-sucedido da aplicação, a documentação interativa pode ser acedida através do browser:
+Após rodar o servidor, a documentação interativa pode ser acedida através do browser:
 
 * **Swagger UI:** [http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html)
 * **OpenAPI JSON:** [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs)
