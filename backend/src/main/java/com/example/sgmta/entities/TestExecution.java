@@ -16,7 +16,7 @@ import java.util.UUID;
 public class TestExecution {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Schema(description = "Identificador único do TestExecution.", example = "123e4567-e89b-12d3-a456-426614174000")
     private UUID id;
 
@@ -48,8 +48,7 @@ public class TestExecution {
 
     protected TestExecution() {}
 
-    public TestExecution(UUID id, LocalDateTime executionDate, String branchName, LocalDateTime startTime, LocalDateTime endTime, Project project, Version version) {
-        this.id = id;
+    public TestExecution(LocalDateTime executionDate, String branchName, LocalDateTime startTime, LocalDateTime endTime, Project project, Version version) {
         this.executionDate = executionDate;
         this.branchName = branchName;
         this.startTime = startTime;

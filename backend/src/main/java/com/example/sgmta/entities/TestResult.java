@@ -15,7 +15,7 @@ import java.util.UUID;
 public class TestResult {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Schema(description = "Identificador único do resultado", example = "123e4567-e89b-12d3-a456-426614174000")
     private UUID id;
 
@@ -35,8 +35,7 @@ public class TestResult {
 
     protected TestResult() {}
 
-    public TestResult(UUID id, String result, TestExecution testExecution, TestCase testCase) {
-        this.id = id;
+    public TestResult (String result, TestExecution testExecution, TestCase testCase) {
         this.result = result;
         this.testExecution = testExecution;
         this.testCase = testCase;

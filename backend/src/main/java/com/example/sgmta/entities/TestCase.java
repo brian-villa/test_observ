@@ -15,7 +15,7 @@ import java.util.UUID;
 public class TestCase {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Schema(description = "identificador único do TestCase", example = "123e4567-e89b-12d3-a456-426614174000")
     private UUID id;
 
