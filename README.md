@@ -37,10 +37,17 @@ O desenvolvimento segue uma abordagem modular baseada no Documento de Especifica
 
 ### 2. Gestão de Projetos e Credenciais 
 * Operações CRUD completas para a entidade `Project`.
-* Associação de equipas de desenvolvimento aos projetos (Relacionamento Many-to-Many otimizado com `Set`).
+* Associação de equipas de desenvolvimento aos projetos.
 * Geração automática de chaves de integração (API Keys) com prefixo dinâmico baseado no nome do projeto para garantir rastreabilidade.
-* Rotação de chaves de segurança (Key Rotation) para invalidação de credenciais comprometidas em pipelines CI/CD.
+* Rotação de chaves de segurança para invalidação de credenciais comprometidas em pipelines CI/CD.
 * Isolamento da camada de apresentação através de DTOs mapeados manualmente (Padrão Mapper).
+* Configuração de tolerância de falhas (*Flaky Threshold*) isolada por projeto.
+
+### 3. Dicionários de Suporte para Ingestão (Catálogos)
+* Estruturação das entidades independentes `Version` e `TestCase` para atuarem como dicionários únicos do sistema.
+* Implementação do padrão *Find or Create* na camada de serviço para garantir integridade e evitar duplicação de dados enviados pelos pipelines (ex: Jenkins, GitHub Actions).
+* Preparação da estrutura lógica para deteção automática de instabilidade de testes (*Flaky Tests*).
+* Exposição de catálogo de leitura (*Read-Only*) via `VersionController` e `TestCaseController` para suporte futuro aos filtros do Dashboard.
 
 ---
 
