@@ -1,6 +1,7 @@
 package com.example.sgmta.dtos.project;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -14,5 +15,9 @@ public record ProjectUpdateDTO(
 
         @Schema(description = "Nova descrição do projeto", example = "Nova arquitetura otimizada")
         @Size(max = 500, message = "A descrição não pode exceder os 500 caracteres.")
-        String description
+        String description,
+
+        @Schema(description = "Nova tolerância de transições para considerar um teste como Flaky", example = "5")
+        @Min(value = 1, message = "A tolerância mínima deve ser 1 transição.")
+                Integer flakyThreshold
 ) {}

@@ -41,6 +41,10 @@ public class Project {
     @Schema(description = "Data e hora de registo do projeto")
     private LocalDateTime createdAt;
 
+    @Column(name = "flaky_threshold", nullable = false)
+    @Schema(description = "Quantidade de transições definida pelo utilizador que são toleradas antes de marcar um teste como Flaky neste projeto.", example = "3")
+    private Integer flakyThreshold = 3;
+
     /**
      *
      * Um projeto contém uma lista de utilizadores (equipa).

@@ -29,8 +29,7 @@ public class TestCase {
 
     protected TestCase() {}
 
-    public TestCase(UUID id, String testName, boolean flaky) {
-        this.id = id;
+    public TestCase(String testName, boolean flaky) {
         this.testName = testName;
         this.flaky = flaky;
     }

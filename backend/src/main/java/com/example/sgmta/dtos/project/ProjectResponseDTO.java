@@ -25,5 +25,8 @@ public record ProjectResponseDTO(
         String projectToken,
 
         @Schema(description = "Data exata em que o projeto foi criado no sistema")
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+
+        @Schema(description = "Quantidade de transições de estado (PASS/FAIL) toleradas antes de marcar um teste como Flaky", example = "3")
+        Integer flakyThreshold
 ) {}

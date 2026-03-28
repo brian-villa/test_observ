@@ -23,5 +23,5 @@ public interface TestCaseRepository extends JpaRepository<TestCase, UUID> {
      * @param testName O nome/descrição do teste (ex: "Should render login button").
      * @return Um Optional contendo o TestCase, se encontrado.
      */
-    Optional<TestCase> findByTestName(UUID id);
+    Optional<TestCase> findByTestName(String testName);
 }
