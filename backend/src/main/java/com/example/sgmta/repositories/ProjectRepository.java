@@ -25,4 +25,5 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
      * Verifica se já existe um projeto com o mesmo nome.
      */
     boolean existsByName(String name);
+
 }

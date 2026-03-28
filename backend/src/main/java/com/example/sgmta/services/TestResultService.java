@@ -1,5 +1,6 @@
 package com.example.sgmta.services;
 
+import com.example.sgmta.entities.Project;
 import com.example.sgmta.entities.TestCase;
 import com.example.sgmta.entities.TestExecution;
 import com.example.sgmta.entities.TestResult;
@@ -26,6 +27,10 @@ public class TestResultService {
 
         TestResult newResult = new TestResult(resultStatus, testExecution, testCase);
         return testResultRepository.save(newResult);
+    }
+
+    public long countFailures(TestCase testCase, Project project) {
+        return testResultRepository.countByTestCaseAndTestExecution_ProjectAndResult(testCase, project, "FAIL");
     }
 
     public List<TestResult> findAll() {
