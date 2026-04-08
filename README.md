@@ -49,12 +49,16 @@ O desenvolvimento segue uma abordagem modular baseada no Documento de Especifica
 * Preparação da estrutura lógica para deteção automática de instabilidade de testes (*Flaky Tests*).
 * Exposição de catálogo de leitura (*Read-Only*) via `VersionController` e `TestCaseController` para suporte futuro aos filtros do Dashboard.
 
-### 4. Motor de Execuções e Resultados (Core)
+### 4. Motor de Execuções e Resultados
 * Modelação do Agregado Raiz `TestExecution` para representar metadados de pipelines CI/CD (branch, durações, projeto, versão).
 * Criação da entidade `TestResult` para mapear o estado individual (PASS/FAIL) de cada caso de teste.
 * Implementação de relacionamentos `@ManyToOne` otimizados com `FetchType.LAZY` para garantir alta performance nas consultas.
 * Exposição de catálogo de leitura (*Read-Only*) da telemetria de testes através de `TestExecutionController` e `TestResultController`.
 * Base estrutural preparada para suportar o futuro endpoint massivo de *Bulk Ingestion*.
+
+### 5. Dashboard e Métricas Analíticas
+* **Métricas Globais:** Endpoint de agregação matemática via PostgreSQL (`COUNT`, `EXISTS`) devolvendo KPIs em milissegundos (Taxa de sucesso, Flakys, etc).
+* **Histórico Filtrável:** Endpoint com paginação dinâmica (`Pageable`) e suporte a filtros opcionais via JPQL (`branchName`, `versionName`).
 
 ---
 
