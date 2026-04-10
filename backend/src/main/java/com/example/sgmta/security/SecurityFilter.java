@@ -45,12 +45,12 @@ public class SecurityFilter extends OncePerRequestFilter {
                 // Criamos o objeto de autenticação que o Spring entende
                 var authentication = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
 
-                // "Carimbamos" o contexto de segurança: a partir daqui, o Spring sabe quem é o utilizador
+                // contexto de segurança
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         }
 
-        // Continua o fluxo para o próximo filtro ou para o Controller
+        // Continua o fluxo para o Controller
         filterChain.doFilter(request, response);
     }
 
@@ -62,4 +62,6 @@ public class SecurityFilter extends OncePerRequestFilter {
         if (authHeader == null) return null;
         return authHeader.replace("Bearer ", "");
     }
+
+
 }

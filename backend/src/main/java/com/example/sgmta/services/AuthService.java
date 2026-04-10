@@ -44,7 +44,7 @@ public class AuthService {
      */
     public User login(LoginDTO data) {
         User user = userRepository.findByEmail(data.email())
-                .orElseThrow(() -> new RuntimeException("Utilizador não encontrado."));
+                .orElseThrow(() -> new RuntimeException("Credenciais inválidas."));
 
         if (!passwordEncoder.matches(data.password(), user.getPassword())) {
             throw new RuntimeException("Credenciais inválidas.");
