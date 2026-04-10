@@ -9,6 +9,7 @@ import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.text.Normalizer;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -127,5 +128,12 @@ public class ProjectService {
         String rawUuid = UUID.randomUUID().toString().replace("-", "");
 
         return safePrefix + "-" + rawUuid;
+    }
+
+    /**
+     * Devolve a lista de projetos associados a um utilizador
+     */
+    public List<Project> findAllByUsers(User user) {
+        return projectRepository.findByUsersContaining(user);
     }
 }

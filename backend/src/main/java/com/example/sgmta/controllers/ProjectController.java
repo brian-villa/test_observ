@@ -18,7 +18,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Controller responsável pela gestão do ciclo de vida dos projetos.
@@ -79,5 +81,19 @@ public class ProjectController {
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         projectService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Listar projetos", description = "Retorna todos os projetos associados ao utilizador autenticado.")
+    @GetMapping
+    public ResponseEntity<List<ProjectResponseDTO>> getAll(@AuthenticationPrincipal User user) {
+
+        // Vai buscar a lista de projetos
+        List<Project> projects = projectService.findAllByUsers(user);
+
+        List<ProjectResponseDTO> response = projects.stream()
+                .map(ProjectMapper::toResponseDTO)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(response);
     }
 }

@@ -1,10 +1,13 @@
 package com.example.sgmta.repositories;
 
 import com.example.sgmta.entities.Project;
+import com.example.sgmta.entities.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -25,5 +28,7 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
      * Verifica se já existe um projeto com o mesmo nome.
      */
     boolean existsByName(String name);
+
+    List<Project> findByUsersContaining(User user);
 
 }
