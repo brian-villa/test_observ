@@ -20,6 +20,11 @@ public interface TestExecutionRepository extends JpaRepository<TestExecution, UU
     long countByProjectId(UUID projectId);
 
     /**
+     * Busca a execução exata para a combinação de Projeto, Suite de Testes e ID da Execução.
+     */
+    Optional<TestExecution> findTopByProjectIdAndSuiteNameAndRunId(UUID projectId, String suiteName, String runId);
+
+    /**
      * Busca as execuções de um projeto com filtros opcionais de branch e versão, devolvendo de forma paginada.
      */
     @Query(value = "SELECT te FROM TestExecution te " +

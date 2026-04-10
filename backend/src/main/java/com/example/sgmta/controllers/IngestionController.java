@@ -4,6 +4,7 @@ import com.example.sgmta.adapters.ReportAdapter;
 import com.example.sgmta.dtos.ingestion.StandardizedPipelineReport;
 import com.example.sgmta.services.IngestionService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -30,7 +31,9 @@ public class IngestionController {
             @RequestHeader("Content-Type") String contentType,
             @RequestHeader("X-Project-Token") String token,
             @RequestHeader("X-Version-Name") String version,
-            @RequestHeader("X-Branch-Name") String branch
+            @RequestHeader("X-Branch-Name") String branch,
+            @Parameter(description = "Nome do grupo de testes (ex: E2E-Tests)") @RequestHeader("X-Suite-Name") String suiteName,
+            @Parameter(description = "ID único da pipeline gerado pelo CI/CD") @RequestHeader("X-Execution-Id") String executionId
     ) {
 
         ReportAdapter adapter = adapters.stream()
@@ -40,7 +43,7 @@ public class IngestionController {
 
         StandardizedPipelineReport report = adapter.adapt(rawPayload, token, version, branch);
 
-        ingestionService.ingest(report);
+        ingestionService.ingest(report, suiteName, executionId);
 
         return ResponseEntity.accepted().body("Relatório recebido e processado com sucesso.");
     }

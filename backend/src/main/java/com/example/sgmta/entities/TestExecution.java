@@ -36,6 +36,14 @@ public class TestExecution {
     @Schema(description = "O timestamp do fim da execução do teste.", example = "2026-03-17T10:05:00")
     private LocalDateTime endTime;
 
+    @Column(name = "suite_name", nullable = false)
+    @Schema(description = "Nome do grupo/suite de testes.", example = "Backend-Unit-Tests")
+    private String suiteName;
+
+    @Column(name = "run_id", nullable = false)
+    @Schema(description = "Identificador único da execução gerado pela ferramenta de CI/CD.", example = "847592834")
+    private String runId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false)
     @Schema(description = "O projeto que essa suite de teste está associada")
@@ -48,11 +56,13 @@ public class TestExecution {
 
     protected TestExecution() {}
 
-    public TestExecution(LocalDateTime executionDate, String branchName, LocalDateTime startTime, LocalDateTime endTime, Project project, Version version) {
+    public TestExecution(LocalDateTime executionDate, String branchName, LocalDateTime startTime, LocalDateTime endTime, String suiteName, String runId, Project project, Version version) {
         this.executionDate = executionDate;
         this.branchName = branchName;
         this.startTime = startTime;
         this.endTime = endTime;
+        this.suiteName = suiteName;
+        this.runId = runId;
         this.project = project;
         this.version = version;
     }

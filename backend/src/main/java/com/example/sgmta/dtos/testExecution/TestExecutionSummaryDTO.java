@@ -18,8 +18,8 @@ public record TestExecutionSummaryDTO(
         @Schema(description = "Data de início", example = "2026-04-08T18:00:00")
         LocalDateTime startTime,
 
-        @Schema(description = "Duração total em minutos", example = "15")
-        long durationMinutes,
+        @Schema(description = "Duração total em milissegundos", example = "15400")
+        long durationMillis,
 
         @Schema(description = "Indica se a execução teve pelo menos uma falha", example = "true")
         boolean hasFailures

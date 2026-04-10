@@ -118,19 +118,19 @@ public class DashboardService {
         // Entidade para o DTO de resumo
         return executionPage.map(execution -> {
 
-            // duração em minutos
-            long durationMinutes = 0L;
+            // duração em ms
+            long durationMillis = 0L;
             if (execution.getStartTime() != null && execution.getEndTime() != null) {
-                durationMinutes = java.time.Duration.between(
+                durationMillis = java.time.Duration.between(
                         execution.getStartTime(),
                         execution.getEndTime()
-                ).toMinutes();
+                ).toMillis();
             }
 
             // Vai buscar o nome da versão
             String resolvedVersionName = execution.getVersion() != null ? execution.getVersion().getVersionName() : "N/A";
 
-            // Verifica na tabela TestResult se houve alguma falha nesta execução
+            // Verifica se houve alguma falha nesta execução
             boolean hasFailures = testResultRepository.existsByTestExecutionIdAndResult(execution.getId(), "FAIL");
 
             return new TestExecutionSummaryDTO(
@@ -138,7 +138,7 @@ public class DashboardService {
                     execution.getBranchName(),
                     resolvedVersionName,
                     execution.getStartTime(),
-                    durationMinutes,
+                    durationMillis,
                     hasFailures
             );
         });

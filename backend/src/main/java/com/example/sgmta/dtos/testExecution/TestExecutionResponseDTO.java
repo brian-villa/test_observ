@@ -18,6 +18,12 @@ public record TestExecutionResponseDTO(
         @Schema(description = "Nome da branch", example = "feature/login")
         String branchName,
 
+        @Schema(description = "Nome da suite de testes", example = "Frontend-E2E")
+        String suiteName,
+
+        @Schema(description = "ID único da execução no pipeline", example = "847592834")
+        String runId,
+
         @Schema(description = "Data de registo da execução", example = "2026-03-17T10:00:00")
         LocalDateTime executionDate,
 
