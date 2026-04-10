@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Register from './pages/Register';
 import PrivateRoute from './components/PrivateRoute';
+import ProjectDetails from './pages/ProjectDetails';
 
 
 function App() {
@@ -25,6 +26,15 @@ function App() {
             element={
               <PrivateRoute>
                 <Dashboard />
+              </PrivateRoute>
+            } 
+          />
+
+          <Route 
+            path="/projects/:id" 
+            element={
+              <PrivateRoute>
+                <ProjectDetails />
               </PrivateRoute>
             } 
           />
