@@ -32,32 +32,30 @@ public class JUnitXmlAdapter implements ReportAdapter {
     @Override
     public StandardizedPipelineReport adapt(String rawPayload, String projectToken, String versionName, String branchName) {
         try {
-            JUnitTestSuites xmlData = xmlMapper.readValue(rawPayload, JUnitTestSuites.class);
+            JUnitTestSuite suite = xmlMapper.readValue(rawPayload, JUnitTestSuite.class);
 
             List<StandardizedPipelineReport.TestCaseResult> standardizedTests = new ArrayList<>();
 
-            if (xmlData.testSuites != null) {
-                for (JUnitTestSuite suite : xmlData.testSuites) {
-                    if (suite.testCases != null) {
-                        for (JUnitTestCase testCase : suite.testCases) {
-                            String status = determineStatus(testCase);
-                            long durationMs = (long) (testCase.time * 1000);
+            if (suite.testCases != null) {
+                for (JUnitTestCase testCase : suite.testCases) {
+                    String status = determineStatus(testCase);
+                    long durationMs = (long) (testCase.time * 1000);
 
-                            standardizedTests.add(new StandardizedPipelineReport.TestCaseResult(
-                                    testCase.name,
-                                    status,
-                                    durationMs
-                            ));
-                        }
-                    }
+                    String fullName = testCase.classname + "." + testCase.name;
+
+                    standardizedTests.add(new StandardizedPipelineReport.TestCaseResult(
+                            fullName,
+                            status,
+                            durationMs
+                    ));
                 }
             }
 
             return new StandardizedPipelineReport(
                     projectToken,
-                    xmlData.name != null ? xmlData.name : "v_default",
-                    "main",
-                    LocalDateTime.now().minusMinutes(10),
+                    versionName,
+                    branchName,
+                    LocalDateTime.now(), // Num nível avançado leríamos os atributos "timestamp" do XML
                     LocalDateTime.now(),
                     standardizedTests
             );
@@ -76,14 +74,14 @@ public class JUnitXmlAdapter implements ReportAdapter {
         return "PASS";
     }
 
-    @JacksonXmlRootElement(localName = "testsuites")
+    @JacksonXmlRootElement(localName = "testsuite")
     @Schema(description = "Estrutura raiz do relatório JUnit XML gerado pelas ferramentas de CI/CD")
     public static class JUnitTestSuites {
         @JacksonXmlProperty(isAttribute = true)
         public String name;
 
         @JacksonXmlElementWrapper(useWrapping = false)
-        @JacksonXmlProperty(localName = "testsuite")
+        @JacksonXmlProperty(localName = "testcase")
         public List<JUnitTestSuite> testSuites;
     }
 
@@ -103,10 +101,16 @@ public class JUnitXmlAdapter implements ReportAdapter {
         public String name;
 
         @JacksonXmlProperty(isAttribute = true)
+        public String classname;
+
+        @JacksonXmlProperty(isAttribute = true)
         public double time;
 
         @JacksonXmlProperty(localName = "failure")
         public Object failure;
+
+        @JacksonXmlProperty(localName = "error")
+        public Object error;
 
         @JacksonXmlProperty(localName = "skipped")
         public Object skipped;

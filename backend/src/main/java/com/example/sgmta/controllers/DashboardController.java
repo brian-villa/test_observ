@@ -57,9 +57,6 @@ public class DashboardController {
             @Parameter(description = "Filtro opcional pela versão") @RequestParam(required = false) String versionName,
             @Parameter(hidden = true) @PageableDefault(size = 10, sort = "startTime,desc") Pageable pageable) {
 
-        // Ocultamos o parâmetro Pageable do Swagger (@Parameter(hidden = true)) porque o
-        // Swagger tem dificuldade em renderizá-lo corretamente, mas ele funciona na URL via ?page=0&size=10
-
         Page<TestExecutionSummaryDTO> history = dashboardService.getExecutionHistory(projectId, branchName, versionName, pageable);
 
         return ResponseEntity.ok(history);
