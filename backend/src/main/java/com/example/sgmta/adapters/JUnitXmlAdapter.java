@@ -51,12 +51,21 @@ public class JUnitXmlAdapter implements ReportAdapter {
                 }
             }
 
+            LocalDateTime startTime = (suite.timestamp != null)
+                    ? LocalDateTime.parse(suite.timestamp)
+                    : LocalDateTime.now();
+
+            LocalDateTime endTime = startTime.plusSeconds((long) suite.time);
+
+            System.out.println(">>> suite.timestamp=" + suite.timestamp
+                    + " suite.time=" + suite.time);
+
             return new StandardizedPipelineReport(
                     projectToken,
                     versionName,
                     branchName,
-                    LocalDateTime.now(), // Num nível avançado leríamos os atributos "timestamp" do XML
-                    LocalDateTime.now(),
+                    startTime,
+                    endTime,
                     standardizedTests
             );
 
@@ -74,21 +83,16 @@ public class JUnitXmlAdapter implements ReportAdapter {
         return "PASS";
     }
 
-    @JacksonXmlRootElement(localName = "testsuite")
-    @Schema(description = "Estrutura raiz do relatório JUnit XML gerado pelas ferramentas de CI/CD")
-    public static class JUnitTestSuites {
-        @JacksonXmlProperty(isAttribute = true)
-        public String name;
-
-        @JacksonXmlElementWrapper(useWrapping = false)
-        @JacksonXmlProperty(localName = "testcase")
-        public List<JUnitTestSuite> testSuites;
-    }
-
     @Schema(description = "Representa uma suite de testes dentro do relatório JUnit")
     public static class JUnitTestSuite {
         @JacksonXmlProperty(isAttribute = true)
         public String name;
+
+        @JacksonXmlProperty(isAttribute = true)
+        public String timestamp;
+
+        @JacksonXmlProperty(isAttribute = true)
+        public double time;
 
         @JacksonXmlElementWrapper(useWrapping = false)
         @JacksonXmlProperty(localName = "testcase")
