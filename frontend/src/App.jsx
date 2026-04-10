@@ -3,28 +3,32 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Register from './pages/Register';
+import PrivateRoute from './components/PrivateRoute';
+
 
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        {/* Configuração das notificações visuais */}
-        <Toaster 
-          position="top-right" 
-          toastOptions={{ 
-            duration: 4000,
-            style: { background: '#fff', color: '#0f172a', border: '1px solid #e2e8f0' }
-          }} 
-        />
-        
+        <Toaster position="top-right" toastOptions={{ duration: 4000, style: { background: '#fff', color: '#0f172a', border: '1px solid #e2e8f0' } }} />
         <Routes>
-          {/* Se aceder à raiz, vai para o Login */}
           <Route path="/" element={<Navigate to="/login" replace />} />
           
+          {/* Rotas Públicas */}
           <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/register" element={<Register />} />
           
-          {/* Rota de fallback caso escreva um URL que não existe */}
+          {/* Rotas Protegidas*/}
+          <Route 
+            path="/dashboard" 
+            element={
+              <PrivateRoute>
+                <Dashboard />
+              </PrivateRoute>
+            } 
+          />
+          
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>

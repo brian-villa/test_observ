@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -105,6 +105,14 @@ export default function Login() {
             {isSubmitting ? 'A Autenticar...' : 'Entrar no Sistema'}
           </button>
         </form>
+
+        {/* --- LINK PARA REGISTO --- */}
+        <p className="mt-8 text-center text-sm text-slate-500">
+          Não possui uma conta?{' '}
+          <Link to="/register" className="font-semibold leading-6 text-primary-600 hover:text-primary-500 transition-colors">
+            Registar Acesso
+          </Link>
+        </p>
 
       </div>
     </div>
