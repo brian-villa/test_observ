@@ -1,4 +1,9 @@
 package com.example.sgmta.dtos.dashboard;
 
-public record TestFailureSummaryDTO() {
-}
+import java.util.UUID;
+
+public record TestFailureSummaryDTO(
+        UUID id,
+        String name,
+        String status
+) {}

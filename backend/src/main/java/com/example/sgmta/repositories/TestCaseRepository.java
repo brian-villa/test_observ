@@ -4,6 +4,7 @@ import com.example.sgmta.entities.TestCase;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -24,4 +25,9 @@ public interface TestCaseRepository extends JpaRepository<TestCase, UUID> {
      * @return Um Optional contendo o TestCase, se encontrado.
      */
     Optional<TestCase> findByTestName(String testName);
+
+    long countByFlakyTrue();
+
+    // Traz a lista dos testes marcados como Flaky
+    List<TestCase> findByFlakyTrue();
 }
