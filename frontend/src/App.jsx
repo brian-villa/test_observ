@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Register from './pages/Register';
 import PrivateRoute from './components/PrivateRoute';
 import ProjectDetails from './pages/ProjectDetails';
+import ExecutionDetails from './pages/ExecutionDetails';
 
 
 function App() {
@@ -35,6 +36,15 @@ function App() {
             element={
               <PrivateRoute>
                 <ProjectDetails />
+              </PrivateRoute>
+            } 
+          />
+
+          <Route 
+            path="/projects/:projectId/executions/:executionId" 
+            element={
+              <PrivateRoute>
+                <ExecutionDetails />
               </PrivateRoute>
             } 
           />
