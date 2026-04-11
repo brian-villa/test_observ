@@ -18,5 +18,8 @@ public record TestResultResponseDTO(
         Boolean isFlaky,
 
         @Schema(description = "ID da execução (pipeline) à qual este resultado pertence")
-        UUID testExecutionId
+        UUID testExecutionId,
+
+        @Schema(description = "Justificação do porquê de o teste ser considerado flaky")
+        String flakyReason
 ) {}

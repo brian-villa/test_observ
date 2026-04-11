@@ -5,10 +5,13 @@ import com.example.sgmta.entities.TestCase;
 import com.example.sgmta.entities.TestExecution;
 import com.example.sgmta.entities.TestResult;
 import com.example.sgmta.repositories.TestResultRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class TestResultService {
@@ -35,5 +38,19 @@ public class TestResultService {
 
     public List<TestResult> findAll() {
         return testResultRepository.findAll();
+    }
+
+    /**
+     * Recupera todos os resultados de uma execução específica.
+     */
+    public List<TestResult> findByExecutionId(UUID executionId) {
+        return testResultRepository.findByTestExecutionId(executionId);
+    }
+
+    public Page<TestResult> findFilteredByExecutionId(UUID executionId, String searchTerm, String status, boolean flakyOnly, Pageable pageable) {
+        String searchParam = (searchTerm == null || searchTerm.trim().isEmpty()) ? "" : searchTerm.trim();
+        Boolean flakyParam = flakyOnly ? true : null; // Se não for flakyOnly, passa null para ignorar o filtro
+
+        return testResultRepository.findFilteredResults(executionId, searchParam, status, flakyParam, pageable);
     }
 }

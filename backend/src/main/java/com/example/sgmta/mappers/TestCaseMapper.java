@@ -20,7 +20,7 @@ public class TestCaseMapper {
         return new TestCaseResponseDTO(
                 testCase.getId(),
                 testCase.getTestName(),
-                testCase.isFlaky()
+                testCase.getFlaky()
         );
     }
 }

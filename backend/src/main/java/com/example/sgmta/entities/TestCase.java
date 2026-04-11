@@ -25,7 +25,7 @@ public class TestCase {
 
     @Column(name = "flaky", nullable = false)
     @Schema(description = "Indica se o teste é flaky ou não.", example = "false")
-    private boolean flaky = false;
+    private Boolean flaky = false;
 
     protected TestCase() {}
 
