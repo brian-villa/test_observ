@@ -1,5 +1,6 @@
 package com.example.sgmta.repositories;
 
+import com.example.sgmta.dtos.testExecution.TestExecutionSummaryDTO;
 import com.example.sgmta.entities.TestExecution;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

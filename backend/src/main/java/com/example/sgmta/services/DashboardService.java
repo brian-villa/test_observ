@@ -140,7 +140,9 @@ public class DashboardService {
                     resolvedVersionName,
                     execution.getStartTime(),
                     durationMillis,
-                    hasFailures
+                    hasFailures,
+                    testResultRepository.countByTestExecutionIdAndResult(execution.getId(), "PASS"),
+                    testResultRepository.countByTestExecutionIdAndResult(execution.getId(), "FAIL")
             );
         });
     }
