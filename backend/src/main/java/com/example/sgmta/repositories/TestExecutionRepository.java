@@ -8,11 +8,24 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface TestExecutionRepository extends JpaRepository<TestExecution, UUID> {
+
+    /**
+     * Busca os nomes únicos das suites executadas num projeto.
+     */
+    @Query("SELECT DISTINCT te.suiteName FROM TestExecution te WHERE te.project.id = :projectId AND te.suiteName IS NOT NULL")
+    List<String> findDistinctSuiteNamesByProjectId(@Param("projectId") UUID projectId);
+
+    /**
+     * Busca os nomes únicos das versões executadas num projeto.
+     */
+    @Query("SELECT DISTINCT v.versionName FROM TestExecution te JOIN te.version v WHERE te.project.id = :projectId")
+    List<String> findDistinctVersionNamesByProjectId(@Param("projectId") UUID projectId);
 
     /**
      * Conta o total de execuções de um projeto específico para a plataforma.

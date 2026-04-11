@@ -1,5 +1,6 @@
 package com.example.sgmta.controllers;
 
+import com.example.sgmta.dtos.dashboard.DashboardFiltersDTO;
 import com.example.sgmta.dtos.dashboard.DashboardMetricsDTO;
 import com.example.sgmta.dtos.testExecution.TestExecutionSummaryDTO;
 import com.example.sgmta.services.DashboardService;
@@ -60,5 +61,15 @@ public class DashboardController {
 
         Page<TestExecutionSummaryDTO> history = dashboardService.getExecutionHistory(projectId, branchName, versionName, pageable);
         return ResponseEntity.ok(history);
+    }
+
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Filtros recuperados com sucesso")
+    })
+    @Operation(summary = "Obter filtros disponíveis", description = "Retorna listas de suites e versões para popular dropdowns no frontend.")
+    @GetMapping("/{projectId}/dashboard/filters")
+    public ResponseEntity<DashboardFiltersDTO> getFilters(@PathVariable UUID projectId) {
+        return ResponseEntity.ok(dashboardService.getAvailableFilters(projectId));
     }
 }

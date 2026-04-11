@@ -1,5 +1,6 @@
 package com.example.sgmta.services;
 
+import com.example.sgmta.dtos.dashboard.DashboardFiltersDTO;
 import com.example.sgmta.dtos.dashboard.DashboardMetricsDTO;
 import com.example.sgmta.dtos.dashboard.FlakyTestSummaryDTO;
 import com.example.sgmta.dtos.dashboard.TestFailureSummaryDTO;
@@ -142,5 +143,15 @@ public class DashboardService {
                     hasFailures
             );
         });
+    }
+
+    /**
+     * Devolve as opções de filtros (Suites e Versões) disponíveis para um projeto.
+     */
+    public DashboardFiltersDTO getAvailableFilters(UUID projectId) {
+        List<String> suites = testExecutionRepository.findDistinctSuiteNamesByProjectId(projectId);
+        List<String> versions = testExecutionRepository.findDistinctVersionNamesByProjectId(projectId);
+
+        return new DashboardFiltersDTO(suites, versions);
     }
 }
