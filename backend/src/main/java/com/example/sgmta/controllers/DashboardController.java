@@ -30,21 +30,30 @@ public class DashboardController {
         this.dashboardService = dashboardService;
     }
 
-    @Operation(summary = "Métricas do Dashboard", description = "Devolve as métricas globais e agregadas de um projeto específico.")
+    @Operation(summary = "Métricas Globais do Dashboard", description = "Devolve as métricas agregadas baseadas no histórico recente do projeto.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Métricas calculadas com sucesso"),
+            @ApiResponse(responseCode = "200", description = "Métricas globais calculadas com sucesso"),
             @ApiResponse(responseCode = "401", description = "Não autenticado"),
             @ApiResponse(responseCode = "403", description = "Sem permissão para aceder a este projeto")
     })
-    @GetMapping("/{projectId}/dashboard/metrics")
-    public ResponseEntity<DashboardMetricsDTO> getDashboardMetrics(
+    @GetMapping("/{projectId}/dashboard/metrics/global")
+    public ResponseEntity<DashboardMetricsDTO> getGlobalMetrics(
             @Parameter(description = "ID único do projeto") @PathVariable UUID projectId) {
+        return ResponseEntity.ok(dashboardService.getGlobalMetrics(projectId));
+    }
 
-        // TODO Futuro: Validar se o User autenticado pertence realmente a este projectId
-
-        DashboardMetricsDTO metrics = dashboardService.getProjectMetrics(projectId);
-        return ResponseEntity.ok(metrics);
+    @Operation(summary = "Métricas de uma Execução Específica", description = "Devolve o Health Score e detalhes de uma única build selecionada.")
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Métricas da build calculadas com sucesso"),
+            @ApiResponse(responseCode = "401", description = "Não autenticado"),
+            @ApiResponse(responseCode = "404", description = "Execução não encontrada")
+    })
+    @GetMapping("/{projectId}/executions/{executionId}/metrics")
+    public ResponseEntity<DashboardMetricsDTO> getBuildMetrics(
+            @Parameter(description = "ID único da execução (build)") @PathVariable UUID executionId) {
+        return ResponseEntity.ok(dashboardService.getBuildMetrics(executionId));
     }
 
     @Operation(summary = "Histórico de Execuções", description = "Retorna a lista paginada de execuções com possibilidade de filtragem por branch ou versão.")
@@ -63,11 +72,11 @@ public class DashboardController {
         return ResponseEntity.ok(history);
     }
 
+    @Operation(summary = "Obter filtros disponíveis", description = "Retorna listas de suites e versões para popular dropdowns no frontend.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Filtros recuperados com sucesso")
     })
-    @Operation(summary = "Obter filtros disponíveis", description = "Retorna listas de suites e versões para popular dropdowns no frontend.")
     @GetMapping("/{projectId}/dashboard/filters")
     public ResponseEntity<DashboardFiltersDTO> getFilters(@PathVariable UUID projectId) {
         return ResponseEntity.ok(dashboardService.getAvailableFilters(projectId));

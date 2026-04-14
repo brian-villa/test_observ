@@ -12,6 +12,7 @@ import com.example.sgmta.repositories.TestCaseRepository;
 import com.example.sgmta.repositories.TestExecutionRepository;
 import com.example.sgmta.repositories.TestResultRepository;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,7 +43,7 @@ public class DashboardService {
     }
 
     @Transactional(readOnly = true)
-    public DashboardMetricsDTO getProjectMetrics(UUID projectId) {
+    public DashboardMetricsDTO getGlobalMetrics(UUID projectId) {
 
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
@@ -53,55 +54,87 @@ public class DashboardService {
             return new DashboardMetricsDTO(project.getName(), 0, 0, 0, "Sem execuções", new ArrayList<>(), new ArrayList<>());
         }
 
-        int healthScore = 0;
-        long totalFlaky = 0;
-        String lastExecutionTime = "Desconhecido";
-        List<TestFailureSummaryDTO> recentFailures = new ArrayList<>();
-        List<FlakyTestSummaryDTO> flakyTests = new ArrayList<>();
+        List<TestExecution> recentExecutions = testExecutionRepository.findFilteredHistory(
+                projectId, null, null, PageRequest.of(0, 15)).getContent();
 
-        var lastExecutionOpt = testExecutionRepository.findTopByProjectIdOrderByStartTimeDesc(projectId);
-
-        if (lastExecutionOpt.isPresent()) {
-            TestExecution lastExec = lastExecutionOpt.get();
-            lastExecutionTime = formatTimeAgo(lastExec.getStartTime());
-
-            long passed = testResultRepository.countByTestExecutionIdAndResult(lastExec.getId(), "PASS");
-            long failed = testResultRepository.countByTestExecutionIdAndResult(lastExec.getId(), "FAIL");
-            long total = passed + failed;
-
-            totalFlaky = testResultRepository.countByTestExecutionIdAndFlakyTrue(lastExec.getId());
-
-            if (total > 0) {
-                double baseSuccessRate = ((double) passed / total) * 100.0;
-
-                double flakyPenalty = totalFlaky * 2.5;
-
-                // Calcula nota final
-                healthScore = (int) Math.max(0, Math.round(baseSuccessRate - flakyPenalty));
-            }
-
-            recentFailures = testResultRepository.findByTestExecutionIdAndResult(lastExec.getId(), "FAIL")
-                    .stream()
-                    .limit(10)
-                    .map(r -> new TestFailureSummaryDTO(r.getId(), r.getTestCase().getTestName(), r.getResult()))
-                    .collect(Collectors.toList());
-
-            // Puxa lista do ranking flaky baseada na última execução
-            flakyTests = testResultRepository.findByTestExecutionIdAndFlakyTrue(lastExec.getId())
-                    .stream()
-                    .limit(5)
-                    .map(r -> new FlakyTestSummaryDTO(r.getId(), r.getTestCase().getTestName(), "Alta"))
-                    .collect(Collectors.toList());
+        // SEGURANÇA: Previne erros se a lista vier vazia
+        if (recentExecutions.isEmpty()) {
+            return new DashboardMetricsDTO(project.getName(), 0, totalExecutions, 0, "Desconhecido", new ArrayList<>(), new ArrayList<>());
         }
+
+        long totalPassedGlobal = 0;
+        long totalTestsGlobal = 0;
+
+        for (TestExecution exec : recentExecutions) {
+            long passed = testResultRepository.countByTestExecutionIdAndResult(exec.getId(), "PASS");
+            long failed = testResultRepository.countByTestExecutionIdAndResult(exec.getId(), "FAIL");
+            totalPassedGlobal += passed;
+            totalTestsGlobal += (passed + failed);
+        }
+
+        long totalFlakysGlobais = testResultRepository.findByTestExecution_ProjectIdAndFlakyTrue(projectId).stream()
+                .map(r -> r.getTestCase().getId())
+                .distinct()
+                .count();
+
+        int globalHealthScore = 0;
+        if (totalTestsGlobal > 0) {
+            double baseSuccessRate = ((double) totalPassedGlobal / totalTestsGlobal) * 100.0;
+            double flakyPenalty = totalFlakysGlobais * 2.5;
+            globalHealthScore = (int) Math.max(0, Math.round(baseSuccessRate - flakyPenalty));
+        }
+
+        TestExecution lastExec = recentExecutions.get(0);
+        String lastExecutionTime = formatTimeAgo(lastExec.getStartTime());
+
+        List<TestFailureSummaryDTO> globalRecentFailures = getFailuresForExecution(lastExec.getId());
+        List<FlakyTestSummaryDTO> globalFlakyTests = getFlakysForExecution(lastExec.getId());
 
         return new DashboardMetricsDTO(
                 project.getName(),
-                healthScore,
+                globalHealthScore,
                 totalExecutions,
-                totalFlaky,
+                totalFlakysGlobais,
                 lastExecutionTime,
-                recentFailures,
-                flakyTests
+                globalRecentFailures,
+                globalFlakyTests
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public DashboardMetricsDTO getBuildMetrics(UUID executionId) {
+
+        TestExecution execution = testExecutionRepository.findById(executionId)
+                .orElseThrow(() -> new RuntimeException("Execução não encontrada"));
+
+        String projectName = execution.getProject().getName();
+
+        long passed = testResultRepository.countByTestExecutionIdAndResult(execution.getId(), "PASS");
+        long failed = testResultRepository.countByTestExecutionIdAndResult(execution.getId(), "FAIL");
+        long total = passed + failed;
+
+        long activeFlakysInBuild = testResultRepository.countByTestExecutionIdAndFlakyTrue(execution.getId());
+
+        int buildHealthScore = 0;
+        if (total > 0) {
+            double baseSuccessRate = ((double) passed / total) * 100.0;
+            double flakyPenalty = activeFlakysInBuild * 2.5;
+            buildHealthScore = (int) Math.max(0, Math.round(baseSuccessRate - flakyPenalty));
+        }
+
+        String executionTime = formatTimeAgo(execution.getStartTime());
+
+        List<TestFailureSummaryDTO> buildFailures = getFailuresForExecution(execution.getId());
+        List<FlakyTestSummaryDTO> buildFlakys = getFlakysForExecution(execution.getId());
+
+        return new DashboardMetricsDTO(
+                projectName,
+                buildHealthScore,
+                1,
+                activeFlakysInBuild,
+                executionTime,
+                buildFailures,
+                buildFlakys
         );
     }
 
@@ -151,5 +184,19 @@ public class DashboardService {
         List<String> versions = testExecutionRepository.findDistinctVersionNamesByProjectId(projectId);
 
         return new DashboardFiltersDTO(suites, versions);
+    }
+
+    private List<TestFailureSummaryDTO> getFailuresForExecution(UUID execId) {
+        return testResultRepository.findByTestExecutionIdAndResult(execId, "FAIL").stream()
+                .limit(10)
+                .map(r -> new TestFailureSummaryDTO(r.getId(), r.getTestCase().getTestName(), r.getResult()))
+                .collect(Collectors.toList());
+    }
+
+    private List<FlakyTestSummaryDTO> getFlakysForExecution(UUID execId) {
+        return testResultRepository.findByTestExecutionIdAndFlakyTrue(execId).stream()
+                .limit(5)
+                .map(r -> new FlakyTestSummaryDTO(r.getId(), r.getTestCase().getTestName(), "Alta"))
+                .collect(Collectors.toList());
     }
 }

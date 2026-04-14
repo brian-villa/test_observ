@@ -80,10 +80,8 @@ public class IngestionService {
         for (StandardizedPipelineReport.TestCaseResult item : report.tests()) {
             TestCase testCase = testCaseService.findOrCreate(item.testName());
 
-            // 1. Cria o resultado e guarda a referência atual
             TestResult currentResult = testResultService.createResult(item.status(), execution, testCase);
 
-            // 2. Corre o motor Flaky para todos os testes (e não apenas os que falham)
             checkAndMarkFlaky(testCase, project, currentResult);
         }
     }
