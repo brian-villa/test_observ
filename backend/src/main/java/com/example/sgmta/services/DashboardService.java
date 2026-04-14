@@ -54,8 +54,10 @@ public class DashboardService {
         }
 
         int healthScore = 0;
+        long totalFlaky = 0;
         String lastExecutionTime = "Desconhecido";
         List<TestFailureSummaryDTO> recentFailures = new ArrayList<>();
+        List<FlakyTestSummaryDTO> flakyTests = new ArrayList<>();
 
         var lastExecutionOpt = testExecutionRepository.findTopByProjectIdOrderByStartTimeDesc(projectId);
 
@@ -63,13 +65,19 @@ public class DashboardService {
             TestExecution lastExec = lastExecutionOpt.get();
             lastExecutionTime = formatTimeAgo(lastExec.getStartTime());
 
-            // Contar sucessos e falhas desta execução
             long passed = testResultRepository.countByTestExecutionIdAndResult(lastExec.getId(), "PASS");
             long failed = testResultRepository.countByTestExecutionIdAndResult(lastExec.getId(), "FAIL");
             long total = passed + failed;
 
+            totalFlaky = testResultRepository.countByTestExecutionIdAndFlakyTrue(lastExec.getId());
+
             if (total > 0) {
-                healthScore = (int) Math.round(((double) passed / total) * 100);
+                double baseSuccessRate = ((double) passed / total) * 100.0;
+
+                double flakyPenalty = totalFlaky * 2.5;
+
+                // Calcula nota final
+                healthScore = (int) Math.max(0, Math.round(baseSuccessRate - flakyPenalty));
             }
 
             recentFailures = testResultRepository.findByTestExecutionIdAndResult(lastExec.getId(), "FAIL")
@@ -77,14 +85,14 @@ public class DashboardService {
                     .limit(10)
                     .map(r -> new TestFailureSummaryDTO(r.getId(), r.getTestCase().getTestName(), r.getResult()))
                     .collect(Collectors.toList());
-        }
 
-        long totalFlaky = testCaseRepository.countByFlakyTrue();
-        List<FlakyTestSummaryDTO> flakyTests = testCaseRepository.findByFlakyTrue()
-                .stream()
-                .limit(5)
-                .map(t -> new FlakyTestSummaryDTO(t.getId(), t.getTestName(), "Alta"))
-                .collect(Collectors.toList());
+            // Puxa lista do ranking flaky baseada na última execução
+            flakyTests = testResultRepository.findByTestExecutionIdAndFlakyTrue(lastExec.getId())
+                    .stream()
+                    .limit(5)
+                    .map(r -> new FlakyTestSummaryDTO(r.getId(), r.getTestCase().getTestName(), "Alta"))
+                    .collect(Collectors.toList());
+        }
 
         return new DashboardMetricsDTO(
                 project.getName(),
@@ -106,9 +114,6 @@ public class DashboardService {
         return "Há " + duration.toDays() + " dias";
     }
 
-    /**
-     * Devolve o histórico paginado e filtrado, mapeando as Entidades para DTOs.
-     */
     @Transactional(readOnly = true)
     public Page<TestExecutionSummaryDTO> getExecutionHistory(
             UUID projectId, String branchName, String versionName, Pageable pageable) {
@@ -116,10 +121,7 @@ public class DashboardService {
         Page<TestExecution> executionPage = testExecutionRepository
                 .findFilteredHistory(projectId, branchName, versionName, pageable);
 
-        // Entidade para o DTO de resumo
         return executionPage.map(execution -> {
-
-            // duração em ms
             long durationMillis = 0L;
             if (execution.getStartTime() != null && execution.getEndTime() != null) {
                 durationMillis = java.time.Duration.between(
@@ -128,10 +130,7 @@ public class DashboardService {
                 ).toMillis();
             }
 
-            // Vai buscar o nome da versão
             String resolvedVersionName = execution.getVersion() != null ? execution.getVersion().getVersionName() : "N/A";
-
-            // Verifica se houve alguma falha nesta execução
             boolean hasFailures = testResultRepository.existsByTestExecutionIdAndResult(execution.getId(), "FAIL");
 
             return new TestExecutionSummaryDTO(
@@ -147,9 +146,6 @@ public class DashboardService {
         });
     }
 
-    /**
-     * Devolve as opções de filtros (Suites e Versões) disponíveis para um projeto.
-     */
     public DashboardFiltersDTO getAvailableFilters(UUID projectId) {
         List<String> suites = testExecutionRepository.findDistinctSuiteNamesByProjectId(projectId);
         List<String> versions = testExecutionRepository.findDistinctVersionNamesByProjectId(projectId);

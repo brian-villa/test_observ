@@ -4,10 +4,14 @@ import com.example.sgmta.dtos.ingestion.StandardizedPipelineReport;
 import com.example.sgmta.entities.*;
 import com.example.sgmta.repositories.ProjectRepository;
 import com.example.sgmta.repositories.TestExecutionRepository;
+import com.example.sgmta.repositories.TestResultRepository;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -20,15 +24,19 @@ public class IngestionService {
     private final TestResultService testResultService;
     private final TestExecutionRepository testExecutionRepository;
 
+    private final TestResultRepository testResultRepository;
+
     public IngestionService(ProjectRepository projectRepository, VersionService versionService,
                             TestCaseService testCaseService, TestExecutionService testExecutionService,
-                            TestResultService testResultService, TestExecutionRepository testExecutionRepository) {
+                            TestResultService testResultService, TestExecutionRepository testExecutionRepository,
+                            TestResultRepository testResultRepository) {
         this.projectRepository = projectRepository;
         this.versionService = versionService;
         this.testCaseService = testCaseService;
         this.testExecutionService = testExecutionService;
         this.testResultService = testResultService;
         this.testExecutionRepository = testExecutionRepository;
+        this.testResultRepository = testResultRepository;
     }
 
     /**
@@ -72,20 +80,49 @@ public class IngestionService {
         for (StandardizedPipelineReport.TestCaseResult item : report.tests()) {
             TestCase testCase = testCaseService.findOrCreate(item.testName());
 
-            testResultService.createResult(item.status(), execution, testCase);
+            // 1. Cria o resultado e guarda a referência atual
+            TestResult currentResult = testResultService.createResult(item.status(), execution, testCase);
 
-            if ("FAIL".equalsIgnoreCase(item.status())) {
-                checkAndMarkFlaky(testCase, project);
-            }
+            // 2. Corre o motor Flaky para todos os testes (e não apenas os que falham)
+            checkAndMarkFlaky(testCase, project, currentResult);
         }
     }
 
-    private void checkAndMarkFlaky(TestCase testCase, Project project) {
-        long failureCount = testResultService.countFailures(testCase, project);
+    /**
+     * Motor Flaky Atualizado:
+     * Agora guarda o estado diretamente no TestResult (currentResult).
+     */
+    private void checkAndMarkFlaky(TestCase testCase, Project project, TestResult currentResult) {
+        int threshold = project.getFlakyThreshold();
 
-        if (failureCount >= project.getFlakyThreshold()) {
-            testCase.setFlaky(true);
-            testCaseService.save(testCase);
+        if (threshold <= 0) {
+            return;
+        }
+
+        int windowSize = Math.max(15, threshold * 3);
+
+        List<TestResult> recentResults = testResultRepository.findRecentResultsByTestCaseAndProject(
+                testCase.getId(),
+                project.getId(),
+                PageRequest.of(0, windowSize, Sort.by(Sort.Direction.DESC, "testExecution.startTime"))
+        ).getContent();
+
+        long failCount = 0;
+        boolean hasPass = false;
+
+        for (TestResult r : recentResults) {
+            if ("FAIL".equalsIgnoreCase(r.getResult())) {
+                failCount++;
+            } else if ("PASS".equalsIgnoreCase(r.getResult())) {
+                hasPass = true;
+            }
+        }
+
+        boolean isNowFlaky = (failCount >= threshold && hasPass);
+
+        if (isNowFlaky) {
+            currentResult.setFlaky(true);
+            testResultService.save(currentResult);
         }
     }
 }

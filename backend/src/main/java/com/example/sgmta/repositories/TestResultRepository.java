@@ -24,7 +24,6 @@ public interface TestResultRepository extends JpaRepository<TestResult, UUID> {
     /**
      * Conta os resultados (PASS/FAIL) pela Execução e pelo Projeto.
      */
-    // Conta quantos testes passaram/falharam numa execução específica
     long countByTestExecutionIdAndResult(UUID testExecutionId, String result);
 
     /**
@@ -32,7 +31,6 @@ public interface TestResultRepository extends JpaRepository<TestResult, UUID> {
      */
     List<TestResult> findByTestExecutionId(UUID testExecutionId);
 
-    // Traz a lista de testes que passaram/falharam numa execução específica
     List<TestResult> findByTestExecutionIdAndResult(UUID testExecutionId, String result);
 
     /**
@@ -41,28 +39,31 @@ public interface TestResultRepository extends JpaRepository<TestResult, UUID> {
      */
     boolean existsByTestExecutionIdAndResult(UUID testExecutionId, String result);
 
-    /**
-     * Conta os casos de teste únicos que estão marcados como Flaky
-     * e que pertencem ao histórico deste projeto específico.
-     */
-    @Query("SELECT COUNT(DISTINCT tr.testCase) FROM TestResult tr WHERE tr.testExecution.project.id = :projectId AND tr.testCase.flaky = true")
-    long countFlakyTestsByProjectId(@Param("projectId") UUID projectId);
-
     @Query(value = "SELECT tr FROM TestResult tr " +
             "WHERE tr.testExecution.id = :executionId " +
             "AND (:searchTerm IS NULL OR LOWER(tr.testCase.testName) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) " +
             "AND (:status = 'ALL' OR tr.result = :status) " +
-            "AND (:isFlaky IS NULL OR tr.testCase.flaky = :isFlaky)",
+            "AND (:isFlaky IS NULL OR tr.flaky = :isFlaky)",
             countQuery = "SELECT count(tr) FROM TestResult tr " +
                     "WHERE tr.testExecution.id = :executionId " +
                     "AND (:searchTerm IS NULL OR LOWER(tr.testCase.testName) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) " +
                     "AND (:status = 'ALL' OR tr.result = :status) " +
-                    "AND (:isFlaky IS NULL OR tr.testCase.flaky = :isFlaky)")
+                    "AND (:isFlaky IS NULL OR tr.flaky = :isFlaky)")
     Page<TestResult> findFilteredResults(
             @Param("executionId") UUID executionId,
             @Param("searchTerm") String searchTerm,
             @Param("status") String status,
             @Param("isFlaky") Boolean isFlaky,
+            Pageable pageable);
+
+    long countByTestExecutionIdAndFlakyTrue(UUID testExecutionId);
+
+    List<TestResult> findByTestExecutionIdAndFlakyTrue(UUID testExecutionId);
+
+    @Query("SELECT r FROM TestResult r WHERE r.testCase.id = :testCaseId AND r.testExecution.project.id = :projectId")
+    Page<TestResult> findRecentResultsByTestCaseAndProject(
+            @Param("testCaseId") UUID testCaseId,
+            @Param("projectId") UUID projectId,
             Pageable pageable);
 
 

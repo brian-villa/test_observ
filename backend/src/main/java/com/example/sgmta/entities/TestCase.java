@@ -23,14 +23,10 @@ public class TestCase {
     @Schema(description = "O nome do TestCase.", example = "shouldAuthenticateUserWithValidCredentials")
     private String testName;
 
-    @Column(name = "flaky", nullable = false)
-    @Schema(description = "Indica se o teste é flaky ou não.", example = "false")
-    private Boolean flaky = false;
 
     protected TestCase() {}
 
-    public TestCase(String testName, boolean flaky) {
+    public TestCase(String testName) {
         this.testName = testName;
-        this.flaky = flaky;
     }
 }

@@ -38,7 +38,7 @@ public class TestCaseService {
             return existingTest.get();
         }
 
-        TestCase newTest = new TestCase(testName, false);
+        TestCase newTest = new TestCase(testName);
 
         return testCaseRepository.save(newTest);
     }

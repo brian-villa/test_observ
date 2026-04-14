@@ -22,14 +22,16 @@ public class TestResultService {
         this.testResultRepository = testResultRepository;
     }
 
-    /**
-     * Cria e persiste o resultado individual de um teste.
-     */
     @Transactional
     public TestResult createResult(String resultStatus, TestExecution testExecution, TestCase testCase) {
-
-        TestResult newResult = new TestResult(resultStatus, testExecution, testCase);
+        TestResult newResult = new TestResult(resultStatus, false, testExecution, testCase);
         return testResultRepository.save(newResult);
+    }
+
+    // NOVO: Método Save genérico
+    @Transactional
+    public TestResult save(TestResult result) {
+        return testResultRepository.save(result);
     }
 
     public long countFailures(TestCase testCase, Project project) {
@@ -40,16 +42,13 @@ public class TestResultService {
         return testResultRepository.findAll();
     }
 
-    /**
-     * Recupera todos os resultados de uma execução específica.
-     */
     public List<TestResult> findByExecutionId(UUID executionId) {
         return testResultRepository.findByTestExecutionId(executionId);
     }
 
     public Page<TestResult> findFilteredByExecutionId(UUID executionId, String searchTerm, String status, boolean flakyOnly, Pageable pageable) {
         String searchParam = (searchTerm == null || searchTerm.trim().isEmpty()) ? "" : searchTerm.trim();
-        Boolean flakyParam = flakyOnly ? true : null; // Se não for flakyOnly, passa null para ignorar o filtro
+        Boolean flakyParam = flakyOnly ? true : null;
 
         return testResultRepository.findFilteredResults(executionId, searchParam, status, flakyParam, pageable);
     }

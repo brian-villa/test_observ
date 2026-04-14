@@ -4,6 +4,10 @@ import com.example.sgmta.dtos.testResult.TestResultResponseDTO;
 import com.example.sgmta.entities.TestResult;
 import java.util.UUID;
 
+/**
+ * Utilitário puro para conversão dos TestResult
+ */
+
 public class TestResultMapper {
 
     public static TestResultResponseDTO toResponseDTO(TestResult result) {
@@ -11,12 +15,9 @@ public class TestResultMapper {
         String testCaseName = (result.getTestCase() != null) ? result.getTestCase().getTestName() : "Desconhecido";
         UUID executionId = (result.getTestExecution() != null) ? result.getTestExecution().getId() : null;
 
-        boolean isFlaky = false;
-        if (result.getTestCase() != null && result.getTestCase().getFlaky() != null) {
-            isFlaky = result.getTestCase().getFlaky();
-        }
+        boolean isFlaky = (result.getFlaky() != null) ? result.getFlaky() : false;
 
-        String reason = determineFlakyReason(isFlaky, result);
+        String reason = determineFlakyReason(isFlaky);
 
         return new TestResultResponseDTO(
                 result.getId(),
@@ -32,7 +33,7 @@ public class TestResultMapper {
      * Motor de decisão para as mensagens de Flaky.
      * Facilita a expansão futura para diferentes cenários de instabilidade.
      */
-    private static String determineFlakyReason(boolean isFlakyDbFlag, TestResult currentResult) {
+    private static String determineFlakyReason(boolean isFlakyDbFlag) {
         if (!isFlakyDbFlag) {
             return null;
         }
@@ -41,7 +42,6 @@ public class TestResultMapper {
 
 
         // TODO FUTURO: Adicionar verificação de flag manual (Cenário C)
-
-        return "Histórico Global: Este teste falhou consecutivamente em execuções recentes (Threshold excedido). Está sinalizado como instável e em quarentena.";
+        return "Este teste falhou consecutivamente em execuções recentes (excedendo o threshold do projeto) e demonstrou instabilidade ao alternar resultados.";
     }
 }

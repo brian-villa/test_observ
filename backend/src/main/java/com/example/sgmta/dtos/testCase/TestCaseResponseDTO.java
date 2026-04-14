@@ -10,9 +10,6 @@ public record TestCaseResponseDTO(
         UUID id,
 
         @Schema(description = "Nome descritivo do teste", example = "shouldAuthenticateUserWithValidCredentials")
-        String testName,
-
-        @Schema(description = "Indicador de instabilidade (Flaky).", example = "false")
-        Boolean flaky
+        String testName
 ) {
 }

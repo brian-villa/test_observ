@@ -26,8 +26,5 @@ public interface TestCaseRepository extends JpaRepository<TestCase, UUID> {
      */
     Optional<TestCase> findByTestName(String testName);
 
-    long countByFlakyTrue();
 
-    // Traz a lista dos testes marcados como Flaky
-    List<TestCase> findByFlakyTrue();
 }

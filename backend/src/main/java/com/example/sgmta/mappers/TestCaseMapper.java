@@ -19,8 +19,7 @@ public class TestCaseMapper {
         }
         return new TestCaseResponseDTO(
                 testCase.getId(),
-                testCase.getTestName(),
-                testCase.getFlaky()
+                testCase.getTestName()
         );
     }
 }
