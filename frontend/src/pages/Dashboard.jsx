@@ -4,7 +4,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import api from '../services/api';
 import Layout from '../components/Layout';
-import ProjectCard from '../components/ProjectCard'; // <-- Importamos o nosso novo componente
+import ProjectCard from '../components/ProjectCard';
 import { Plus, FolderGit2, X, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 

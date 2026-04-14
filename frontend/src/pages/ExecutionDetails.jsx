@@ -169,7 +169,7 @@ export default function ExecutionDetails() {
                       </td>
                     </tr>
 
-                    {/* GAVETA DE DETALHES (Acordeão Compacto) */}
+                    {/* GAVETA DE DETALHES */}
                     {expandedRowId === test.id && (
                       <tr className="bg-slate-50/50 border-b border-slate-100 shadow-inner">
                         <td colSpan="4" className="px-8 py-4">

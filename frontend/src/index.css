@@ -4,12 +4,12 @@
 @theme {
   --font-sans: "Inter", sans-serif;
   
-  /* Paleta Enterprise SGMTA */
+  /* Paleta  SGMTA */
   --color-primary-500: var(--color-indigo-500);
   --color-primary-600: var(--color-indigo-600);
   --color-primary-700: var(--color-indigo-700);
   
-  /* Cores Semânticas de Testes */
+  /* Cores de Testes */
   --color-test-pass: var(--color-green-500);
   --color-test-fail: var(--color-red-500);
   --color-test-flaky: var(--color-amber-500);

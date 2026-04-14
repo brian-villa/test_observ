@@ -32,6 +32,7 @@ export default function Login() {
       await login(data.email, data.password);
       navigate('/dashboard');
     } catch (error) {
+      
     }
   };
 
@@ -106,7 +107,7 @@ export default function Login() {
           </button>
         </form>
 
-        {/* --- LINK PARA REGISTO --- */}
+        {/* --- REGISTO --- */}
         <p className="mt-8 text-center text-sm text-slate-500">
           Não possui uma conta?{' '}
           <Link to="/register" className="font-semibold leading-6 text-primary-600 hover:text-primary-500 transition-colors">

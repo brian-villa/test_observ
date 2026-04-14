@@ -3,13 +3,13 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import {
   ArrowLeft, AlertTriangle, XCircle, Clock,
-  TrendingUp, Filter, BarChart2, RefreshCw
+  TrendingUp, BarChart2, RefreshCw, Eye
 } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  AreaChart, Area, BarChart, Bar
+  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell
 } from 'recharts';
 
 function SkeletonCard() {
@@ -22,9 +22,9 @@ function SkeletonCard() {
 }
 
 function MetricCard({ label, value, accent, sub }) {
-  const accentMap = { green: 'border-t-green-500', blue: 'border-t-blue-500', red: 'border-t-red-500' };
-  const textMap   = { green: 'text-slate-900',     blue: 'text-slate-900',    red: 'text-red-700'    };
-  const labelMap  = { green: 'text-slate-500',     blue: 'text-slate-500',    red: 'text-red-600'    };
+  const accentMap = { green: 'border-t-green-500', blue: 'border-t-blue-500', red: 'border-t-red-500', amber: 'border-t-amber-500' };
+  const textMap   = { green: 'text-slate-900',     blue: 'text-slate-900',    red: 'text-red-700', amber: 'text-amber-700' };
+  const labelMap  = { green: 'text-slate-500',     blue: 'text-slate-500',    red: 'text-red-600', amber: 'text-amber-600' };
   return (
     <div className={`bg-white p-6 rounded-xl border border-slate-200 shadow-sm border-t-4 ${accentMap[accent]}`}>
       <p className={`text-[11px] font-bold uppercase tracking-widest ${labelMap[accent]}`}>{label}</p>
@@ -36,7 +36,6 @@ function MetricCard({ label, value, accent, sub }) {
   );
 }
 
-// CORREÇÃO 2: Tooltip inteligente que lida com Inteiros vs Tempos
 function CustomTooltip({ active, payload, label, unit, mode }) {
   if (!active || !payload?.length) return null;
   return (
@@ -47,44 +46,23 @@ function CustomTooltip({ active, payload, label, unit, mode }) {
     }}>
       <p style={{ color: '#64748b', marginBottom: '4px', fontWeight: 600 }}>{label}</p>
       {payload.map(p => {
-        // Se estivermos no modo de Resultados (barras), forçamos inteiro sem unidade
-        const isResultsMode = mode === 'results';
+        const isResultsMode = mode === 'results' || p.name === 'Passou' || p.name === 'Falhou';
         let displayValue;
         
         if (isResultsMode) {
-          displayValue = Math.round(p.value); // Força inteiro
+          displayValue = Math.round(p.value); 
         } else {
           displayValue = typeof p.value === 'number' ? p.value.toFixed(unit === 'ms' ? 0 : 2) : p.value;
-          displayValue += (unit ?? ''); // Adiciona 's' ou 'ms'
+          displayValue += (unit ?? '');
         }
 
         return (
-          <p key={p.dataKey} style={{ color: p.color, margin: 0 }}>
+          <p key={p.dataKey || p.name} style={{ color: p.color || p.payload?.fill, margin: 0 }}>
             {p.name}: <span style={{ fontWeight: 700 }}>{displayValue}</span>
           </p>
         );
       })}
     </div>
-  );
-}
-
-function CustomDot({ cx, cy }) {
-  if (!cx || !cy) return null;
-  return (
-    <g>
-      <circle cx={cx} cy={cy} r={3}   fill="#3b82f6" />
-      <circle cx={cx} cy={cy} r={5.5} fill="none" stroke="#3b82f6" strokeWidth={1} strokeOpacity={0.3} />
-    </g>
-  );
-}
-
-function CustomActiveDot({ cx, cy }) {
-  if (!cx || !cy) return null;
-  return (
-    <g>
-      <circle cx={cx} cy={cy} r={4} fill="#3b82f6" />
-      <circle cx={cx} cy={cy} r={8} fill="none" stroke="#3b82f6" strokeWidth={1.5} strokeOpacity={0.2} />
-    </g>
   );
 }
 
@@ -95,11 +73,10 @@ export default function ProjectDetails() {
   const [isLoading, setIsLoading]       = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [timeUnit, setTimeUnit]         = useState('s');
-  const [chartMode, setChartMode]       = useState('duration');
+  const [chartMode, setChartMode]       = useState('results');
 
-  const [filters, setFilters]                 = useState({ suites: [], versions: [] });
-  const [selectedSuite, setSelectedSuite]     = useState('');
-  const [selectedVersion, setSelectedVersion] = useState('');
+  // ESTADO CHAVE: Controla se estamos na Visão Global (null) ou Visão de Build (objeto)
+  const [selectedExecution, setSelectedExecution] = useState(null);
 
   const [metrics, setMetrics] = useState({
     projectName: 'A carregar...',
@@ -113,11 +90,18 @@ export default function ProjectDetails() {
 
   const [historyData, setHistoryData] = useState([]);
 
-  useEffect(() => {
-    if (!id) return;
-    api.get(`api/v1/projects/${id}/dashboard/filters`)
-      .then(res => setFilters({ suites: res.data.suites || [], versions: res.data.versions || [] }))
-      .catch(err => console.error('Erro ao carregar filtros:', err));
+  const fetchMetrics = useCallback(async (executionId = null) => {
+    try {
+      const endpoint = executionId 
+        ? `api/v1/projects/${id}/executions/${executionId}/metrics`
+        : `api/v1/projects/${id}/dashboard/metrics/global`;
+      
+      const res = await api.get(endpoint);
+      setMetrics(res.data);
+    } catch (error) {
+      toast.error('Erro ao carregar métricas.');
+      console.error(error);
+    }
   }, [id]);
 
   const fetchDashboardData = useCallback(async (showRefreshSpinner = false) => {
@@ -125,58 +109,45 @@ export default function ProjectDetails() {
       if (showRefreshSpinner) setIsRefreshing(true);
       else setIsLoading(true);
 
-      const params = new URLSearchParams();
-      if (selectedSuite)   params.append('suiteName',   selectedSuite);
-      if (selectedVersion) params.append('versionName', selectedVersion);
-
-      const qs      = params.toString() ? `?${params.toString()}` : '';
-      const qsExtra = params.toString() ? `&${params.toString()}` : '';
-
-      const [metricsRes, historyRes] = await Promise.all([
-        api.get(`api/v1/projects/${id}/dashboard/metrics${qs}`),
-        api.get(`api/v1/projects/${id}/dashboard/history?size=100${qsExtra}`),
-      ]);
-
-      setMetrics(metricsRes.data);
-
+      // 1. Busca o histórico de execuções para o gráfico
+      const historyRes = await api.get(`api/v1/projects/${id}/dashboard/history?size=100`);
+      
       const content = historyRes.data.content || [];
-      let dataToDisplay = content;
 
-      if (!selectedVersion) {
-        const seen = new Set();
-        dataToDisplay = content.filter(exec => {
-          if (exec.versionName === 'N/A') return true;
-          if (seen.has(exec.versionName)) return false;
-          seen.add(exec.versionName);
-          return true;
-        });
-      }
+      const formattedHistory = content.map((exec, idx) => {
+        const timeString = new Date(exec.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return {
+          name: exec.versionName !== 'N/A' ? `${exec.versionName} (${timeString})` : `Run ${idx + 1}`,
+          rawDuration: exec.durationMillis || 0,
+          passedCount: exec.passedCount    || 0,
+          failedCount: exec.failedCount    || 0,
+          id:          exec.id || exec.executionId,
+        };
+      }).reverse();
 
-      setHistoryData(
-        dataToDisplay.map((exec, idx) => {
-          const timeString = new Date(exec.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          return {
-            name: !selectedVersion
-              ? (exec.versionName !== 'N/A' ? exec.versionName : `Run ${idx}`)
-              : (exec.versionName !== 'N/A' ? `${exec.versionName} (${timeString})` : `Run ${timeString}`),
-            rawDuration: exec.durationMillis || 0,
-            passedCount: exec.passedCount    || 0,
-            failedCount: exec.failedCount    || 0,
-            id:          exec.executionId,
-          };
-        }).reverse()
-      );
-    } catch {
+      setHistoryData(formattedHistory);
+
+      // 2. Atualiza as métricas (Cards) usando o endpoint correto
+      await fetchMetrics(selectedExecution?.id);
+
+    } catch (error) {
       toast.error('Erro ao sincronizar dados com o servidor.');
+      console.error(error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [id, selectedSuite, selectedVersion]);
+  }, [id, selectedExecution, fetchMetrics]);
 
   useEffect(() => {
     if (id) fetchDashboardData();
   }, [fetchDashboardData, id]);
+
+  // Quando o utilizador clica no switch, atualizamos apenas as métricas
+  const handleToggleView = (execObj) => {
+    setSelectedExecution(execObj);
+    fetchMetrics(execObj?.id);
+  };
 
   const chartData = historyData.map(item => {
     let value = item.rawDuration;
@@ -185,15 +156,24 @@ export default function ProjectDetails() {
     return { ...item, duration: Number(value.toFixed(timeUnit === 'ms' ? 0 : 2)) };
   });
 
+  // Clica numa barra do gráfico: Muda o contexto em vez de sair da página
   const handleChartClick = useCallback((state) => {
     if (!state?.activeLabel) return;
     const hit = chartData.find(item => item.name === state.activeLabel);
-    if (hit?.id) navigate(`/projects/${id}/executions/${hit.id}`);
-  }, [chartData, id, navigate]);
+    if (hit?.id) {
+      handleToggleView(hit);
+    }
+  }, [chartData]);
+
+  // Dados para o Gráfico Circular
+  const pieData = selectedExecution ? [
+    { name: 'Passou', value: selectedExecution.passedCount },
+    { name: 'Falhou', value: selectedExecution.failedCount }
+  ] : [];
+  const PIE_COLORS = ['#86efac', '#fca5a5'];
 
   return (
     <Layout>
-
       {/* ── Cabeçalho ── */}
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -205,7 +185,6 @@ export default function ProjectDetails() {
             <button
               onClick={() => fetchDashboardData(true)}
               disabled={isRefreshing}
-              title="Atualizar dados"
               className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition-colors disabled:opacity-40"
             >
               <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
@@ -213,133 +192,127 @@ export default function ProjectDetails() {
           </div>
           {metrics.lastExecutionTime && (
             <p className="text-sm text-slate-400 flex items-center gap-1.5 mt-1">
-              <Clock size={13} /> Atualizado: {metrics.lastExecutionTime}
+              <Clock size={13} /> {selectedExecution ? 'Executado:' : 'Última execução:'} {metrics.lastExecutionTime}
             </p>
           )}
         </div>
 
-        {/* Filtros */}
-        <div className="flex flex-col sm:flex-row items-center gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center gap-2 text-slate-400">
-            <Filter size={15} />
-            <span className="text-xs font-semibold uppercase tracking-wider">Filtros</span>
-          </div>
-          <select value={selectedSuite} onChange={e => setSelectedSuite(e.target.value)}
-            className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 cursor-pointer">
-            <option value="">Todas as Suites</option>
-            {filters.suites.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <select value={selectedVersion} onChange={e => setSelectedVersion(e.target.value)}
-            className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 cursor-pointer">
-            <option value="">Todas as Versões</option>
-            {filters.versions.map(v => <option key={v} value={v}>{v}</option>)}
-          </select>
-          {(selectedSuite || selectedVersion) && (
-            <button onClick={() => { setSelectedSuite(''); setSelectedVersion(''); }}
-              className="text-xs text-blue-600 hover:underline whitespace-nowrap">
-              Limpar filtros
+        {/* Global x Build */}
+        <div className="flex bg-slate-100 p-1 rounded-xl shadow-inner w-fit border border-slate-200">
+          <button 
+            onClick={() => handleToggleView(null)}
+            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${
+              !selectedExecution ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Visão Global
+          </button>
+          {selectedExecution && (
+            <button 
+              className="px-4 py-1.5 text-sm font-semibold rounded-lg bg-white text-blue-600 shadow-sm transition-all"
+            >
+              Build
             </button>
           )}
         </div>
       </div>
 
-      {/* ── Skeleton ── */}
       {isLoading ? (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <SkeletonCard /><SkeletonCard /><SkeletonCard />
-          </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-6 h-64 animate-pulse">
-            <div className="h-full bg-slate-100 rounded-lg" />
-          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6"><SkeletonCard /><SkeletonCard /><SkeletonCard /></div>
+          <div className="bg-white rounded-xl border border-slate-200 p-6 h-64 animate-pulse"><div className="h-full bg-slate-100 rounded-lg" /></div>
         </div>
       ) : (
         <>
           {/* ── Cards de métricas ── */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <MetricCard
-              label="Sucesso da Suite" value={`${metrics.healthScore}%`} accent="green"
+              label={selectedExecution ? "Saúde da Build" : "Média de Saúde"} 
+              value={`${metrics.healthScore}%`} 
+              accent="green"
               sub={metrics.healthScore >= 90 ? 'Estável' : metrics.healthScore >= 70 ? 'Atenção recomendada' : 'Requer ação imediata'}
             />
-            <MetricCard label="Total de Builds" value={metrics.totalExecutions} accent="blue" />
+            <MetricCard 
+              label={selectedExecution ? "Total de Testes (Build)" : "Total de Execuções"} 
+              value={selectedExecution ? (selectedExecution.passedCount + selectedExecution.failedCount) : metrics.totalExecutions} 
+              accent="blue" 
+            />
             <MetricCard
-              label="Testes Instáveis" value={metrics.totalFlaky} accent="red"
-              sub={metrics.totalFlaky === 0 ? 'Nenhuma instabilidade detetada' : `${metrics.totalFlaky} teste(s) com comportamento errático`}
+              label={selectedExecution ? "Flakys Ativos" : "Flakys Globais"} 
+              value={metrics.totalFlaky} 
+              accent={selectedExecution ? "amber" : "red"}
+              sub={metrics.totalFlaky === 0 ? 'Sem instabilidades' : `${metrics.totalFlaky} teste(s) instáveis detetados`}
             />
           </div>
 
-          {/* ── Gráfico ── */}
+          {/* ── Gráficos ── */}
           <div className="bg-white rounded-xl border border-slate-200 p-5 mb-8 shadow-sm">
-
-            {/* Header */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
               <div className="flex items-center gap-2">
                 <TrendingUp size={15} className="text-blue-500" />
-                <h3 className="font-semibold text-slate-700 text-xs uppercase tracking-wider">Histórico de execuções</h3>
-                <span className="hidden sm:inline text-[10px] text-slate-300 ml-1">· clique para detalhes</span>
+                <h3 className="font-semibold text-slate-700 text-xs uppercase tracking-wider">
+                  {selectedExecution ? ` ${selectedExecution.name}` : 'Evolução e Tendências'}
+                </h3>
+                {!selectedExecution && <span className="hidden sm:inline text-[10px] text-slate-300 ml-1">· clique numa barra para detalhe</span>}
               </div>
 
-              <div className="flex items-center gap-2">
-                {/* Toggle modo */}
-                <div className="flex bg-slate-50 border border-slate-200 rounded-lg p-0.5 gap-0.5">
-                  {[
-                    { key: 'duration', icon: <TrendingUp size={11} />, label: 'Tempo'      },
-                    { key: 'results',  icon: <BarChart2  size={11} />, label: 'Resultados' },
-                  ].map(({ key, icon, label }) => (
-                    <button key={key} onClick={() => setChartMode(key)}
-                      className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
-                        chartMode === key ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
-                      }`}>
-                      {icon}{label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Toggle unidade */}
-                {chartMode === 'duration' && (
+              {/* Filtros e Toggles modo global */}
+              {!selectedExecution && (
+                <div className="flex items-center gap-2">
                   <div className="flex bg-slate-50 border border-slate-200 rounded-lg p-0.5 gap-0.5">
-                    {[{ key: 'ms', label: 'ms' }, { key: 's', label: 's' }, { key: 'm', label: 'min' }].map(({ key, label }) => (
-                      <button key={key} onClick={() => setTimeUnit(key)}
-                        className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
-                          timeUnit === key ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                    {[
+                      { key: 'duration', icon: <TrendingUp size={11} />, label: 'Tempo'      },
+                      { key: 'results',  icon: <BarChart2  size={11} />, label: 'Resultados' },
+                    ].map(({ key, icon, label }) => (
+                      <button key={key} onClick={() => setChartMode(key)}
+                        className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
+                          chartMode === key ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
                         }`}>
-                        {label}
+                        {icon}{label}
                       </button>
                     ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+              
+              {/* Botão de ver todos os detalhes na Visão de Build */}
+              {selectedExecution && (
+                <button 
+                  onClick={() => navigate(`/projects/${id}/executions/${selectedExecution.id}`)}
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  <Eye size={14} /> Ver todos os testes
+                </button>
+              )}
             </div>
 
-            <div className="h-52">
-              {chartData.length > 0 ? (
+            <div className="h-64">
+              {/* Se for Visão de Build, mostra Donut Chart. Se for Global, mostra Bar/Area Chart */}
+              {selectedExecution ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={3} dataKey="value">
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip mode="results" />} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   {chartMode === 'duration' ? (
-                    // CORREÇÃO 1: Remover o left: -16 e dar um left: 0 (ou maior) para o YAxis caber
-                    <AreaChart data={chartData} onClick={handleChartClick} style={{ cursor: 'pointer' }}
-                      margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%"   stopColor="#3b82f6" stopOpacity={0.08} />
-                          <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
+                    <AreaChart data={chartData} onClick={handleChartClick} style={{ cursor: 'pointer' }} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                       <CartesianGrid horizontal={true} vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="name" tick={{ fill: '#cbd5e1', fontSize: 10 }} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" />
-                      {/* Adicionado width={45} no YAxis para garantir espaço suficiente para os números */}
+                      <XAxis dataKey="name" tick={{ fill: '#cbd5e1', fontSize: 10 }} axisLine={false} tickLine={false} dy={6} />
                       <YAxis tick={{ fill: '#cbd5e1', fontSize: 10 }} axisLine={false} tickLine={false} unit={timeUnit} width={45} tickCount={4} />
                       <Tooltip content={<CustomTooltip unit={timeUnit} mode={chartMode} />} />
-                      <Area type="monotone" dataKey="duration" name={`Duração (${timeUnit})`}
-                        stroke="#3b82f6" strokeWidth={1.5} fill="url(#grad)"
-                        dot={<CustomDot />} activeDot={<CustomActiveDot />} />
+                      <Area type="monotone" dataKey="duration" stroke="#3b82f6" strokeWidth={1.5} fill="#eff6ff" />
                     </AreaChart>
                   ) : (
-                    // CORREÇÃO 1: O mesmo no BarChart
-                    <BarChart data={chartData} onClick={handleChartClick} style={{ cursor: 'pointer' }}
-                      margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-                      barCategoryGap="40%" barGap={1}>
+                    <BarChart data={chartData} onClick={handleChartClick} style={{ cursor: 'pointer' }} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="40%" barGap={1}>
                       <CartesianGrid horizontal={true} vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="name" tick={{ fill: '#cbd5e1', fontSize: 10 }} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" />
+                      <XAxis dataKey="name" tick={{ fill: '#cbd5e1', fontSize: 10 }} axisLine={false} tickLine={false} dy={6} />
                       <YAxis tick={{ fill: '#cbd5e1', fontSize: 10 }} axisLine={false} tickLine={false} width={36} tickCount={4} />
                       <Tooltip content={<CustomTooltip mode={chartMode} />} />
                       <Bar dataKey="passedCount" name="Passou" stackId="a" fill="#86efac" radius={[0, 0, 2, 2]} />
@@ -348,43 +321,34 @@ export default function ProjectDetails() {
                   )}
                 </ResponsiveContainer>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full gap-2">
-                  <BarChart2 size={24} className="text-slate-200" />
-                  <p className="text-xs text-slate-300 italic">
-                    {selectedSuite || selectedVersion ? 'Sem dados para os filtros selecionados.' : 'Sem execuções registadas.'}
-                  </p>
-                </div>
+                <div className="flex flex-col items-center justify-center h-full gap-2"><BarChart2 size={24} className="text-slate-200" /><p className="text-xs text-slate-300 italic">Sem dados disponíveis.</p></div>
               )}
             </div>
 
-            {/* Legenda — só no modo resultados */}
-            {chartMode === 'results' && chartData.length > 0 && (
-              <div className="flex items-center gap-4 mt-3 justify-end">
-                <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
+            {/* Legenda */}
+            {(chartMode === 'results' || selectedExecution) && (
+              <div className="flex items-center gap-4 mt-3 justify-center">
+                <span className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                   <span className="w-2.5 h-2.5 rounded-sm bg-green-300 inline-block" /> Passou
                 </span>
-                <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                <span className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                   <span className="w-2.5 h-2.5 rounded-sm bg-red-300 inline-block" /> Falhou
                 </span>
               </div>
             )}
           </div>
 
-          {/* ── Tabelas ── */}
+          {/* ── Tabelas Inferiores ── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-
             {/* Falhas críticas */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <XCircle size={16} className="text-red-500" />
-                  <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Falhas Críticas</h3>
+                  <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
+                    {selectedExecution ? "Falhas nesta Build" : "Falhas Críticas (Última Run)"}
+                  </h3>
                 </div>
-                {metrics.recentFailures?.length > 0 && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600">
-                    {metrics.recentFailures.length}
-                  </span>
-                )}
               </div>
               <div className="overflow-x-auto flex-1">
                 {metrics.recentFailures?.length > 0 ? (
@@ -402,7 +366,7 @@ export default function ProjectDetails() {
                   </table>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12 gap-2 text-slate-400">
-                    <p className="text-sm italic">Nenhuma falha na última execução.</p>
+                    <p className="text-sm italic">Nenhuma falha a registar.</p>
                   </div>
                 )}
               </div>
@@ -413,53 +377,37 @@ export default function ProjectDetails() {
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <AlertTriangle size={16} className="text-amber-500" />
-                  <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Ranking de Instabilidade</h3>
+                  <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
+                    {selectedExecution ? "Flakys Ativos (Nesta Build)" : "Testes Instáveis (Global)"}
+                  </h3>
                 </div>
-                {metrics.flakyTests?.length > 0 && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-600">
-                    {metrics.flakyTests.length}
-                  </span>
-                )}
               </div>
               <div className="overflow-x-auto flex-1">
                 {metrics.flakyTests?.length > 0 ? (
                   <table className="min-w-full divide-y divide-slate-100">
                     <tbody className="divide-y divide-slate-100 text-sm">
-                      {metrics.flakyTests.map((test, i) => {
-                        const rateNum     = typeof test.failureRate === 'string' ? parseFloat(test.failureRate) : (test.failureRate || 0) * 100;
-                        const rateDisplay = isNaN(rateNum) ? test.failureRate : `${Math.round(rateNum)}%`;
-                        const barWidth    = isNaN(rateNum) ? 0 : Math.min(rateNum, 100);
-                        const barColor    = rateNum >= 60 ? 'bg-red-400' : rateNum >= 30 ? 'bg-amber-400' : 'bg-yellow-300';
-                        return (
-                          <tr key={test.id} className="hover:bg-amber-50/40 transition-colors">
-                            <td className="px-6 py-3">
-                              <div className="flex items-start gap-2">
-                                <span className="text-[10px] font-bold text-slate-400 mt-0.5 shrink-0">#{i + 1}</span>
-                                <span className="text-xs font-mono text-slate-600 break-all">{test.name}</span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-3 text-right w-28 shrink-0">
-                              <div className="flex flex-col items-end gap-1">
-                                <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wide">{rateDisplay}</span>
-                                <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                  <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${barWidth}%` }} />
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {metrics.flakyTests.map((test, i) => (
+                        <tr key={test.id} className="hover:bg-amber-50/40 transition-colors">
+                          <td className="px-6 py-3">
+                            <div className="flex items-start gap-2">
+                              <span className="text-[10px] font-bold text-slate-400 mt-0.5 shrink-0">#{i + 1}</span>
+                              <span className="text-xs font-mono text-slate-600 break-all">{test.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-3 text-right shrink-0">
+                             <span className="text-[10px] font-bold uppercase px-2 py-1 bg-amber-100 text-amber-600 rounded-md">Instável</span>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12 gap-2 text-slate-400">
-                    <span className="text-2xl">🟢</span>
                     <p className="text-sm italic">Sem testes instáveis detetados.</p>
                   </div>
                 )}
               </div>
             </div>
-
           </div>
         </>
       )}
