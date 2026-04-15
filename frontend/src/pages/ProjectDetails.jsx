@@ -47,15 +47,7 @@ function CustomTooltip({ active, payload, label, unit, mode }) {
       <p style={{ color: '#64748b', marginBottom: '4px', fontWeight: 600 }}>{label}</p>
       {payload.map(p => {
         const isResultsMode = mode === 'results' || p.name === 'Passou' || p.name === 'Falhou';
-        let displayValue;
-        
-        if (isResultsMode) {
-          displayValue = Math.round(p.value); 
-        } else {
-          displayValue = typeof p.value === 'number' ? p.value.toFixed(unit === 'ms' ? 0 : 2) : p.value;
-          displayValue += (unit ?? '');
-        }
-
+        let displayValue = isResultsMode ? Math.round(p.value) : (typeof p.value === 'number' ? p.value.toFixed(unit === 'ms' ? 0 : 2) : p.value) + (unit ?? '');
         return (
           <p key={p.dataKey || p.name} style={{ color: p.color || p.payload?.fill, margin: 0 }}>
             {p.name}: <span style={{ fontWeight: 700 }}>{displayValue}</span>
@@ -75,7 +67,6 @@ export default function ProjectDetails() {
   const [timeUnit, setTimeUnit]         = useState('s');
   const [chartMode, setChartMode]       = useState('results');
 
-  // ESTADO CHAVE: Controla se estamos na Visão Global (null) ou Visão de Build (objeto)
   const [selectedExecution, setSelectedExecution] = useState(null);
 
   const [metrics, setMetrics] = useState({
@@ -83,24 +74,47 @@ export default function ProjectDetails() {
     healthScore: 0,
     totalExecutions: 0,
     totalFlaky: 0,
-    lastExecutionTime: '',
-    recentFailures: [],
-    flakyTests: [],
+    lastExecutionTime: ''
   });
 
   const [historyData, setHistoryData] = useState([]);
+   
+  const [failuresList, setFailuresList] = useState([]);
+  const [flakyList, setFlakyList] = useState([]);
 
-  const fetchMetrics = useCallback(async (executionId = null) => {
+  const normalizeTestName = (fullName) => {
+    if (!fullName) return "Teste Desconhecido";
+    const parts = fullName.split('.');
+    return parts.length > 2 ? parts.slice(-2).join('.') : fullName;
+  };
+
+  const fetchLists = async (targetExecutionId) => {
+    if (!targetExecutionId) return;
+    try {
+      const failRes = await api.get(`/executions/${targetExecutionId}/results?status=FAIL&size=20`);
+      setFailuresList(failRes.data.content || []);
+
+      const flakyRes = await api.get(`/executions/${targetExecutionId}/results?flakyOnly=true&size=20`);
+      setFlakyList(flakyRes.data.content || []);
+    } catch (error) {
+      console.error('Erro ao buscar as listas de testes:', error);
+    }
+  };
+
+  const fetchMetrics = useCallback(async (executionId = null, latestExecutionId = null) => {
     try {
       const endpoint = executionId 
-        ? `api/v1/projects/${id}/executions/${executionId}/metrics`
-        : `api/v1/projects/${id}/dashboard/metrics/global`;
+        ? `/api/v1/projects/${id}/executions/${executionId}/metrics`
+        : `/api/v1/projects/${id}/dashboard/metrics/global`;
       
       const res = await api.get(endpoint);
       setMetrics(res.data);
+
+      const targetId = executionId || latestExecutionId;
+      if (targetId) await fetchLists(targetId);
+
     } catch (error) {
       toast.error('Erro ao carregar métricas.');
-      console.error(error);
     }
   }, [id]);
 
@@ -109,15 +123,16 @@ export default function ProjectDetails() {
       if (showRefreshSpinner) setIsRefreshing(true);
       else setIsLoading(true);
 
-      // 1. Busca o histórico de execuções para o gráfico
-      const historyRes = await api.get(`api/v1/projects/${id}/dashboard/history?size=100`);
-      
+      const historyRes = await api.get(`/api/v1/projects/${id}/dashboard/history?size=100`);
       const content = historyRes.data.content || [];
 
       const formattedHistory = content.map((exec, idx) => {
         const timeString = new Date(exec.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        // Extrai o nome limpo (ex: build-109) sem as horas para enviar para a outra página
+        const cleanName = exec.versionName && exec.versionName !== 'N/A' ? exec.versionName : `Run ${idx + 1}`;
         return {
-          name: exec.versionName !== 'N/A' ? `${exec.versionName} (${timeString})` : `Run ${idx + 1}`,
+          name: `${cleanName} (${timeString})`,
+          versionName: cleanName,
           rawDuration: exec.durationMillis || 0,
           passedCount: exec.passedCount    || 0,
           failedCount: exec.failedCount    || 0,
@@ -127,12 +142,11 @@ export default function ProjectDetails() {
 
       setHistoryData(formattedHistory);
 
-      // 2. Atualiza as métricas (Cards) usando o endpoint correto
-      await fetchMetrics(selectedExecution?.id);
+      const latestId = content.length > 0 ? (content[0].id || content[0].executionId) : null;
+      await fetchMetrics(selectedExecution?.id, latestId);
 
     } catch (error) {
       toast.error('Erro ao sincronizar dados com o servidor.');
-      console.error(error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -143,10 +157,9 @@ export default function ProjectDetails() {
     if (id) fetchDashboardData();
   }, [fetchDashboardData, id]);
 
-  // Quando o utilizador clica no switch, atualizamos apenas as métricas
   const handleToggleView = (execObj) => {
     setSelectedExecution(execObj);
-    fetchMetrics(execObj?.id);
+    fetchMetrics(execObj?.id, historyData.length > 0 ? historyData[historyData.length - 1].id : null);
   };
 
   const chartData = historyData.map(item => {
@@ -156,16 +169,12 @@ export default function ProjectDetails() {
     return { ...item, duration: Number(value.toFixed(timeUnit === 'ms' ? 0 : 2)) };
   });
 
-  // Clica numa barra do gráfico: Muda o contexto em vez de sair da página
   const handleChartClick = useCallback((state) => {
     if (!state?.activeLabel) return;
     const hit = chartData.find(item => item.name === state.activeLabel);
-    if (hit?.id) {
-      handleToggleView(hit);
-    }
+    if (hit?.id) handleToggleView(hit);
   }, [chartData]);
 
-  // Dados para o Gráfico Circular
   const pieData = selectedExecution ? [
     { name: 'Passou', value: selectedExecution.passedCount },
     { name: 'Falhou', value: selectedExecution.failedCount }
@@ -174,7 +183,6 @@ export default function ProjectDetails() {
 
   return (
     <Layout>
-      {/* ── Cabeçalho ── */}
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <Link to="/dashboard" className="inline-flex items-center text-sm font-medium text-slate-500 mb-4 hover:text-slate-700 transition-colors">
@@ -197,7 +205,6 @@ export default function ProjectDetails() {
           )}
         </div>
 
-        {/* Global x Build */}
         <div className="flex bg-slate-100 p-1 rounded-xl shadow-inner w-fit border border-slate-200">
           <button 
             onClick={() => handleToggleView(null)}
@@ -208,10 +215,8 @@ export default function ProjectDetails() {
             Visão Global
           </button>
           {selectedExecution && (
-            <button 
-              className="px-4 py-1.5 text-sm font-semibold rounded-lg bg-white text-blue-600 shadow-sm transition-all"
-            >
-              Build
+            <button className="px-4 py-1.5 text-sm font-semibold rounded-lg bg-white text-blue-600 shadow-sm transition-all">
+              Build Selecionada
             </button>
           )}
         </div>
@@ -224,7 +229,6 @@ export default function ProjectDetails() {
         </div>
       ) : (
         <>
-          {/* ── Cards de métricas ── */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <MetricCard
               label={selectedExecution ? "Saúde da Build" : "Média de Saúde"} 
@@ -238,25 +242,22 @@ export default function ProjectDetails() {
               accent="blue" 
             />
             <MetricCard
-              label={selectedExecution ? "Flakys Ativos" : "Flakys Globais"} 
+              label={selectedExecution ? "Flakys Ativos" : "Flakys"} 
               value={metrics.totalFlaky} 
               accent={selectedExecution ? "amber" : "red"}
-              sub={metrics.totalFlaky === 0 ? 'Sem instabilidades' : `${metrics.totalFlaky} teste(s) instáveis detetados`}
+              sub={metrics.totalFlaky === 0 ? 'Sem instabilidades' : `${metrics.totalFlaky} instabilidade(s) a resolver`}
             />
           </div>
 
-          {/* ── Gráficos ── */}
           <div className="bg-white rounded-xl border border-slate-200 p-5 mb-8 shadow-sm">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
               <div className="flex items-center gap-2">
                 <TrendingUp size={15} className="text-blue-500" />
                 <h3 className="font-semibold text-slate-700 text-xs uppercase tracking-wider">
-                  {selectedExecution ? ` ${selectedExecution.name}` : 'Evolução e Tendências'}
+                  {selectedExecution ? ` ${selectedExecution.versionName}` : 'Evolução e Tendências'}
                 </h3>
-                {!selectedExecution && <span className="hidden sm:inline text-[10px] text-slate-300 ml-1">· clique numa barra para detalhe</span>}
               </div>
 
-              {/* Filtros e Toggles modo global */}
               {!selectedExecution && (
                 <div className="flex items-center gap-2">
                   <div className="flex bg-slate-50 border border-slate-200 rounded-lg p-0.5 gap-0.5">
@@ -275,10 +276,12 @@ export default function ProjectDetails() {
                 </div>
               )}
               
-              {/* Botão de ver todos os detalhes na Visão de Build */}
+              {/* Navegação Global -> Todos os Testes: Envia o nome da build */}
               {selectedExecution && (
                 <button 
-                  onClick={() => navigate(`/projects/${id}/executions/${selectedExecution.id}`)}
+                  onClick={() => navigate(`/projects/${id}/executions/${selectedExecution.id}`, {
+                    state: { search: '', status: 'ALL', flakyOnly: false, buildName: selectedExecution.versionName }
+                  })}
                   className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
                 >
                   <Eye size={14} /> Ver todos os testes
@@ -287,14 +290,11 @@ export default function ProjectDetails() {
             </div>
 
             <div className="h-64">
-              {/* Se for Visão de Build, mostra Donut Chart. Se for Global, mostra Bar/Area Chart */}
               {selectedExecution ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={pieData} cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={3} dataKey="value">
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                      ))}
+                      {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
                     </Pie>
                     <Tooltip content={<CustomTooltip mode="results" />} />
                   </PieChart>
@@ -325,7 +325,6 @@ export default function ProjectDetails() {
               )}
             </div>
 
-            {/* Legenda */}
             {(chartMode === 'results' || selectedExecution) && (
               <div className="flex items-center gap-4 mt-3 justify-center">
                 <span className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
@@ -338,9 +337,7 @@ export default function ProjectDetails() {
             )}
           </div>
 
-          {/* ── Tabelas Inferiores ── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Falhas críticas */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -350,15 +347,25 @@ export default function ProjectDetails() {
                   </h3>
                 </div>
               </div>
-              <div className="overflow-x-auto flex-1">
-                {metrics.recentFailures?.length > 0 ? (
+              <div className="overflow-y-auto overflow-x-auto max-h-[300px] flex-1 custom-scrollbar">
+                {failuresList.length > 0 ? (
                   <table className="min-w-full divide-y divide-slate-100">
                     <tbody className="divide-y divide-slate-100 text-sm">
-                      {metrics.recentFailures.map(test => (
-                        <tr key={test.id} className="hover:bg-red-50/40 transition-colors group">
-                          <td className="px-6 py-3 text-xs font-mono text-slate-600 break-all group-hover:text-red-700 transition-colors">{test.name}</td>
+                      {failuresList.map(test => (
+                        <tr 
+                          key={test.id} 
+                          onClick={() => navigate(`/projects/${id}/executions/${test.testExecutionId}`, {
+                            state: { search: '', status: 'FAIL', flakyOnly: false, buildName: selectedExecution ? selectedExecution.versionName : 'Última Build' }
+                          })}
+                          className="hover:bg-red-50/40 transition-colors group cursor-pointer"
+                        >
+                          <td className="px-6 py-3 text-xs font-mono text-slate-600 break-all group-hover:text-red-700 transition-colors" title={test.testCaseName}>
+                            {normalizeTestName(test.testCaseName)}
+                          </td>
                           <td className="px-6 py-3 text-right shrink-0">
-                            <span className="text-[10px] font-bold uppercase px-2 py-1 bg-red-100 text-red-600 rounded-md">{test.status}</span>
+                            <span className="text-[10px] font-bold uppercase px-2 py-1 bg-red-100 text-red-600 rounded-md">
+                              {test.result || "FAIL"}
+                            </span>
                           </td>
                         </tr>
                       ))}
@@ -372,26 +379,33 @@ export default function ProjectDetails() {
               </div>
             </div>
 
-            {/* Ranking Flaky */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <AlertTriangle size={16} className="text-amber-500" />
                   <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
-                    {selectedExecution ? "Flakys Ativos (Nesta Build)" : "Testes Instáveis (Global)"}
+                    {selectedExecution ? "Flakys Nesta Build" : "Flaky Global"}
                   </h3>
                 </div>
               </div>
-              <div className="overflow-x-auto flex-1">
-                {metrics.flakyTests?.length > 0 ? (
+              <div className="overflow-y-auto overflow-x-auto max-h-[300px] flex-1 custom-scrollbar">
+                {flakyList.length > 0 ? (
                   <table className="min-w-full divide-y divide-slate-100">
                     <tbody className="divide-y divide-slate-100 text-sm">
-                      {metrics.flakyTests.map((test, i) => (
-                        <tr key={test.id} className="hover:bg-amber-50/40 transition-colors">
+                      {flakyList.map((test, i) => (
+                        <tr 
+                          key={test.id} 
+                          onClick={() => navigate(`/projects/${id}/executions/${test.testExecutionId}`, {
+                            state: { search: '', status: 'ALL', flakyOnly: true, buildName: selectedExecution ? selectedExecution.versionName : 'Última Build' }
+                          })}
+                          className="hover:bg-amber-50/40 transition-colors cursor-pointer group"
+                        >
                           <td className="px-6 py-3">
                             <div className="flex items-start gap-2">
                               <span className="text-[10px] font-bold text-slate-400 mt-0.5 shrink-0">#{i + 1}</span>
-                              <span className="text-xs font-mono text-slate-600 break-all">{test.name}</span>
+                              <span className="text-xs font-mono text-slate-600 break-all group-hover:text-amber-700 transition-colors" title={test.testCaseName}>
+                                {normalizeTestName(test.testCaseName)}
+                              </span>
                             </div>
                           </td>
                           <td className="px-6 py-3 text-right shrink-0">
@@ -403,11 +417,13 @@ export default function ProjectDetails() {
                   </table>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12 gap-2 text-slate-400">
+                    <span className="text-2xl">🟢</span>
                     <p className="text-sm italic">Sem testes instáveis detetados.</p>
                   </div>
                 )}
               </div>
             </div>
+
           </div>
         </>
       )}
