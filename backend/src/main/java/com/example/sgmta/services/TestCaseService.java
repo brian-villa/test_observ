@@ -42,22 +42,4 @@ public class TestCaseService {
 
         return testCaseRepository.save(newTest);
     }
-
-    /**
-     * Persiste alterações numa entidade TestCase existente.
-     * para atualizar o estado para 'flaky'.
-     */
-    @Transactional
-    public void save(TestCase testCase) {
-        testCaseRepository.save(testCase);
-    }
-
-    /**
-     * Recupera todo o catálogo de testes.
-     * * @return Lista de casos de teste registados.
-     */
-    public List<TestCase> findAll() {
-        return testCaseRepository.findAll();
-    }
-    
 }

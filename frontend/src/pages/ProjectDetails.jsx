@@ -392,7 +392,7 @@ export default function ProjectDetails() {
                 {flakyList.length > 0 ? (
                   <table className="min-w-full divide-y divide-slate-100">
                     <tbody className="divide-y divide-slate-100 text-sm">
-                      {flakyList.map((test, i) => (
+                      {flakyList.map((test) => (
                         <tr 
                           key={test.id} 
                           onClick={() => navigate(`/projects/${id}/executions/${test.testExecutionId}`, {
@@ -402,7 +402,6 @@ export default function ProjectDetails() {
                         >
                           <td className="px-6 py-3">
                             <div className="flex items-start gap-2">
-                              <span className="text-[10px] font-bold text-slate-400 mt-0.5 shrink-0">#{i + 1}</span>
                               <span className="text-xs font-mono text-slate-600 break-all group-hover:text-amber-700 transition-colors" title={test.testCaseName}>
                                 {normalizeTestName(test.testCaseName)}
                               </span>
