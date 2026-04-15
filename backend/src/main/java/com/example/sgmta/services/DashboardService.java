@@ -8,7 +8,6 @@ import com.example.sgmta.dtos.testExecution.TestExecutionSummaryDTO;
 import com.example.sgmta.entities.Project;
 import com.example.sgmta.entities.TestExecution;
 import com.example.sgmta.repositories.ProjectRepository;
-import com.example.sgmta.repositories.TestCaseRepository;
 import com.example.sgmta.repositories.TestExecutionRepository;
 import com.example.sgmta.repositories.TestResultRepository;
 import org.springframework.data.domain.Page;
@@ -30,16 +29,14 @@ public class DashboardService {
     private final ProjectRepository projectRepository;
     private final TestExecutionRepository testExecutionRepository;
     private final TestResultRepository testResultRepository;
-    private final TestCaseRepository testCaseRepository;
+
 
     public DashboardService(ProjectRepository projectRepository,
                             TestExecutionRepository testExecutionRepository,
-                            TestResultRepository testResultRepository,
-                            TestCaseRepository testCaseRepository) {
+                            TestResultRepository testResultRepository) {
         this.projectRepository = projectRepository;
         this.testExecutionRepository = testExecutionRepository;
         this.testResultRepository = testResultRepository;
-        this.testCaseRepository = testCaseRepository;
     }
 
     @Transactional(readOnly = true)
@@ -57,7 +54,7 @@ public class DashboardService {
         List<TestExecution> recentExecutions = testExecutionRepository.findFilteredHistory(
                 projectId, null, null, PageRequest.of(0, 15)).getContent();
 
-        // SEGURANÇA: Previne erros se a lista vier vazia
+        //erros se a lista vier vazia
         if (recentExecutions.isEmpty()) {
             return new DashboardMetricsDTO(project.getName(), 0, totalExecutions, 0, "Desconhecido", new ArrayList<>(), new ArrayList<>());
         }
