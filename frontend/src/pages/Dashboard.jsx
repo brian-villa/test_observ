@@ -22,10 +22,10 @@ export default function Dashboard() {
   const [projects, setProjects] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Estado avançado para o modal: Sabe se está a criar ou editar
+  //  está a criar ou editar
   const [modalConfig, setModalConfig] = useState({
     isOpen: false,
-    mode: 'create', // 'create' ou 'edit'
+    mode: 'create', 
     projectData: null
   });
 
