@@ -6,9 +6,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * A "Língua Franca" do SGMTA.
- * Independentemente do formato de entrada (XML, JSON) ou da plataforma,
- * os dados são sempre normalizados para este formato antes de chegarem ao IngestionService.
+ * Independentemente do formato de entrada ou da plataforma,
+ * os dados são  normalizados para este formato antes de chegarem ao Service.
  */
 @Schema(description = "Relatório padronizado de pipeline, independente da ferramenta de origem.")
 public record StandardizedPipelineReport(
@@ -41,6 +40,9 @@ public record StandardizedPipelineReport(
             String status,
 
             @Schema(description = "Duração da execução do teste em milissegundos", example = "120")
-            Long durationMs
+            Long durationMs,
+
+            @Schema(description = "A stack trace ou motivo da falha do teste", example = "NullPointerException at line 45")
+            String errorMessage
     ) {}
 }

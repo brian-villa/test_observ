@@ -32,8 +32,8 @@ public class IngestionController {
             @RequestHeader("X-Project-Token") String token,
             @RequestHeader("X-Version-Name") String version,
             @RequestHeader("X-Branch-Name") String branch,
-            @Parameter(description = "Nome do grupo de testes (ex: E2E-Tests)") @RequestHeader("X-Suite-Name") String suiteName,
-            @Parameter(description = "ID único da pipeline gerado pelo CI/CD") @RequestHeader("X-Execution-Id") String executionId
+            @Parameter(description = "Nome do grupo de testes") @RequestHeader("X-Suite-Name") String suiteName,
+            @Parameter(description = "ID único da pipeline") @RequestHeader("X-Execution-Id") String executionId
     ) {
 
         ReportAdapter adapter = adapters.stream()

@@ -42,7 +42,6 @@ public class SecurityFilter extends OncePerRequestFilter {
                 UserDetails user = userRepository.findByEmail(email)
                         .orElseThrow(() -> new RuntimeException("Utilizador não encontrado no filtro"));
 
-                // Criamos o objeto de autenticação que o Spring entende
                 var authentication = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
 
                 // contexto de segurança

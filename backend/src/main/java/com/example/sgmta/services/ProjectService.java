@@ -41,6 +41,8 @@ public class ProjectService {
         Project newProject = new Project(data.name(), data.description(), projectToken);
         newProject.addUser(creator);
 
+
+
         return projectRepository.save(newProject);
     }
 
@@ -61,6 +63,10 @@ public class ProjectService {
 
         if (data.description() != null) {
             project.setDescription(data.description());
+        }
+
+        if (data.flakyThreshold() != null) {
+            project.setFlakyThreshold(data.flakyThreshold());
         }
 
         return projectRepository.save(project);
@@ -124,7 +130,6 @@ public class ProjectService {
         //Remove tudo o que não for letra ou número e passa para minúsculas
         String safePrefix = normalized.replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
 
-        //Gera a parte criptográfica
         String rawUuid = UUID.randomUUID().toString().replace("-", "");
 
         return safePrefix + "-" + rawUuid;

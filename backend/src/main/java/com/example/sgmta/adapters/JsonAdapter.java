@@ -17,6 +17,7 @@ public class JsonAdapter implements ReportAdapter {
 
     public JsonAdapter() {
         this.jsonMapper = new ObjectMapper()
+                .findAndRegisterModules()
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
@@ -28,7 +29,6 @@ public class JsonAdapter implements ReportAdapter {
     @Override
     public StandardizedPipelineReport adapt(String rawPayload, String projectToken, String versionName, String branchName) {
         try {
-            // Converte o JSON bruto para a nossa estrutura de entrada
             JsonPayload inputData = jsonMapper.readValue(rawPayload, JsonPayload.class);
 
             List<StandardizedPipelineReport.TestCaseResult> standardizedTests = new ArrayList<>();
@@ -38,7 +38,8 @@ public class JsonAdapter implements ReportAdapter {
                     standardizedTests.add(new StandardizedPipelineReport.TestCaseResult(
                             test.name(),
                             test.status().toUpperCase(),
-                            test.durationMs()
+                            test.durationMs(),
+                            test.errorMessage()
                     ));
                 }
             }
@@ -78,6 +79,9 @@ public class JsonAdapter implements ReportAdapter {
             String status,
 
             @Schema(description = "Duração em milissegundos", example = "150")
-            Long durationMs
+            Long durationMs,
+
+            @Schema(description = "Mensagem de erro caso o teste tenha falhado")
+            String errorMessage
     ) {}
 }

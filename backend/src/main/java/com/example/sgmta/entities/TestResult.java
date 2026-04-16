@@ -27,6 +27,10 @@ public class TestResult {
     @Schema(description = "Indica se o teste é flaky ou não.", example = "false")
     private Boolean flaky = false;
 
+    @Column(name = "error_message", columnDefinition = "TEXT")
+    @Schema(description = " motivo da falha do teste", example = "NullPointerException at line 45")
+    private String errorMessage;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "test_execution_id", nullable = false)
     @Schema(description = "A execução desse teste pertence a que suite de teste")
@@ -39,9 +43,10 @@ public class TestResult {
 
     protected TestResult() {}
 
-    public TestResult (String result, Boolean flaky, TestExecution testExecution, TestCase testCase) {
+    public TestResult(String result, Boolean flaky, String errorMessage, TestExecution testExecution, TestCase testCase) {
         this.result = result;
         this.flaky = flaky;
+        this.errorMessage = errorMessage;
         this.testExecution = testExecution;
         this.testCase = testCase;
     }

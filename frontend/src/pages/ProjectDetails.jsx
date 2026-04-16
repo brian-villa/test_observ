@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import {
   ArrowLeft, AlertTriangle, XCircle, Clock,
-  TrendingUp, BarChart2, RefreshCw, Eye
+  TrendingUp, BarChart2, RefreshCw, Eye, GitCommit
 } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -43,6 +43,7 @@ function CustomTooltip({ active, payload, label, unit, mode }) {
       background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px',
       padding: '8px 12px', fontSize: '12px',
       boxShadow: '0 4px 12px rgba(0,0,0,0.08)', minWidth: '120px',
+      zIndex: 100
     }}>
       <p style={{ color: '#64748b', marginBottom: '4px', fontWeight: 600 }}>{label}</p>
       {payload.map(p => {
@@ -54,6 +55,12 @@ function CustomTooltip({ active, payload, label, unit, mode }) {
           </p>
         );
       })}
+      {/* lembrete no tooltip */}
+      {payload[0]?.payload?.isAggregated && (
+        <p style={{ color: '#94a3b8', fontSize: '9px', marginTop: '6px', fontStyle: 'italic' }}>
+          *Mostra apenas a tentativa mais recente desta versão.
+        </p>
+      )}
     </div>
   );
 }
@@ -64,8 +71,12 @@ export default function ProjectDetails() {
 
   const [isLoading, setIsLoading]       = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Controles do Gráfico
   const [timeUnit, setTimeUnit]         = useState('s');
   const [chartMode, setChartMode]       = useState('results');
+
+  const [historyView, setHistoryView]   = useState('evolution'); 
 
   const [selectedExecution, setSelectedExecution] = useState(null);
 
@@ -77,7 +88,7 @@ export default function ProjectDetails() {
     lastExecutionTime: ''
   });
 
-  const [historyData, setHistoryData] = useState([]);
+  const [rawHistoryData, setRawHistoryData] = useState([]);
    
   const [failuresList, setFailuresList] = useState([]);
   const [flakyList, setFlakyList] = useState([]);
@@ -126,21 +137,7 @@ export default function ProjectDetails() {
       const historyRes = await api.get(`/api/v1/projects/${id}/dashboard/history?size=100`);
       const content = historyRes.data.content || [];
 
-      const formattedHistory = content.map((exec, idx) => {
-        const timeString = new Date(exec.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        // Extrai o nome limpo (ex: build-109) sem as horas para enviar para a outra página
-        const cleanName = exec.versionName && exec.versionName !== 'N/A' ? exec.versionName : `Run ${idx + 1}`;
-        return {
-          name: `${cleanName} (${timeString})`,
-          versionName: cleanName,
-          rawDuration: exec.durationMillis || 0,
-          passedCount: exec.passedCount    || 0,
-          failedCount: exec.failedCount    || 0,
-          id:          exec.id || exec.executionId,
-        };
-      }).reverse();
-
-      setHistoryData(formattedHistory);
+      setRawHistoryData([...content].reverse());
 
       const latestId = content.length > 0 ? (content[0].id || content[0].executionId) : null;
       await fetchMetrics(selectedExecution?.id, latestId);
@@ -157,28 +154,92 @@ export default function ProjectDetails() {
     if (id) fetchDashboardData();
   }, [fetchDashboardData, id]);
 
+  const latestRunName = useMemo(() => {
+    if (rawHistoryData && rawHistoryData.length > 0) {
+      const lastRun = rawHistoryData[rawHistoryData.length - 1];
+      return lastRun.versionName && lastRun.versionName !== 'N/A' 
+        ? lastRun.versionName 
+        : `Run ${lastRun.id?.substring(0,8)}`;
+    }
+    return 'Build Atual';
+  }, [rawHistoryData]);
+
+  // EVOLUÇÃO VS TIMELINE
+  const displayChartData = useMemo(() => {
+    if (!rawHistoryData || rawHistoryData.length === 0) return [];
+
+    let processedData = [];
+
+    if (historyView === 'evolution') {
+      const latestRunsMap = new Map();
+      rawHistoryData.forEach((exec) => {
+        const buildKey = exec.versionName && exec.versionName !== 'N/A' ? exec.versionName : exec.id;
+        const execTime = new Date(exec.startTime).getTime();
+
+        if (!latestRunsMap.has(buildKey)) {
+          latestRunsMap.set(buildKey, exec);
+        } else {
+          const existingExec = latestRunsMap.get(buildKey);
+          const existingTime = new Date(existingExec.startTime).getTime();
+          if (execTime > existingTime) {
+            latestRunsMap.set(buildKey, exec);
+          }
+        }
+      });
+      processedData = Array.from(latestRunsMap.values())
+        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    } else {
+      processedData = rawHistoryData;
+    }
+
+    // Formata Recharts
+    return processedData.map((exec, idx) => {
+      const timeString = new Date(exec.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const cleanName = exec.versionName && exec.versionName !== 'N/A' ? exec.versionName : `Run ${idx + 1}`;
+      
+      let duration = exec.durationMillis || 0;
+      if (timeUnit === 's') duration /= 1000;
+      if (timeUnit === 'm') duration /= 60000;
+
+      return {
+        name: historyView === 'evolution' ? cleanName : `${cleanName} (${timeString})`,
+        versionName: cleanName,
+        duration: Number(duration.toFixed(timeUnit === 'ms' ? 0 : 2)),
+        passedCount: exec.passedCount || 0,
+        failedCount: exec.failedCount || 0,
+        id: exec.id || exec.executionId,
+        isAggregated: historyView === 'evolution'
+      };
+    });
+  }, [rawHistoryData, historyView, timeUnit]);
+
   const handleToggleView = (execObj) => {
     setSelectedExecution(execObj);
-    fetchMetrics(execObj?.id, historyData.length > 0 ? historyData[historyData.length - 1].id : null);
+    fetchMetrics(execObj?.id, rawHistoryData.length > 0 ? rawHistoryData[rawHistoryData.length - 1].id : null);
   };
-
-  const chartData = historyData.map(item => {
-    let value = item.rawDuration;
-    if (timeUnit === 's') value /= 1000;
-    if (timeUnit === 'm') value /= 60000;
-    return { ...item, duration: Number(value.toFixed(timeUnit === 'ms' ? 0 : 2)) };
-  });
 
   const handleChartClick = useCallback((state) => {
     if (!state?.activeLabel) return;
-    const hit = chartData.find(item => item.name === state.activeLabel);
-    if (hit?.id) handleToggleView(hit);
-  }, [chartData]);
+    const hit = displayChartData.find(item => item.name === state.activeLabel);
+    
+    if (hit) {
+      if (historyView === 'evolution') {
+        navigate(`/projects/${id}/build-history`, { 
+          state: { versionName: hit.versionName } 
+        });
+      } else {
+        navigate(`/projects/${id}/executions/${hit.id}`, { 
+          state: { search: '', status: 'ALL', flakyOnly: false, buildName: hit.versionName } 
+        });
+      }
+    }
+  }, [displayChartData, id, navigate, historyView]);
 
   const pieData = selectedExecution ? [
     { name: 'Passou', value: selectedExecution.passedCount },
     { name: 'Falhou', value: selectedExecution.failedCount }
   ] : [];
+
   const PIE_COLORS = ['#86efac', '#fca5a5'];
 
   return (
@@ -249,46 +310,71 @@ export default function ProjectDetails() {
             />
           </div>
 
+          {/* ── PAINEL ── */}
           <div className="bg-white rounded-xl border border-slate-200 p-5 mb-8 shadow-sm">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
-              <div className="flex items-center gap-2">
-                <TrendingUp size={15} className="text-blue-500" />
-                <h3 className="font-semibold text-slate-700 text-xs uppercase tracking-wider">
-                  {selectedExecution ? ` ${selectedExecution.versionName}` : 'Evolução e Tendências'}
-                </h3>
-              </div>
-
-              {!selectedExecution && (
+            
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4 border-b border-slate-100 pb-4">
+              
+              {!selectedExecution ? (
+                <div className="flex bg-slate-50 p-1 rounded-lg border border-slate-200 w-full md:w-auto">
+                  <button 
+                    onClick={() => setHistoryView('evolution')}
+                    className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                      historyView === 'evolution' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    <TrendingUp size={14} /> Evolução de Versão
+                  </button>
+                  <button 
+                    onClick={() => setHistoryView('timeline')}
+                    className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                      historyView === 'timeline' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    <GitCommit size={14} /> Timeline de Runs
+                  </button>
+                </div>
+              ) : (
                 <div className="flex items-center gap-2">
-                  <div className="flex bg-slate-50 border border-slate-200 rounded-lg p-0.5 gap-0.5">
+                  <TrendingUp size={15} className="text-blue-500" />
+                  <h3 className="font-semibold text-slate-700 text-xs uppercase tracking-wider">
+                    {` ${selectedExecution.versionName}`}
+                  </h3>
+                </div>
+              )}
+
+              {/*Tempo vs Resultados */}
+              <div className="flex items-center gap-3 ml-auto">
+                {!selectedExecution && (
+                  <div className="flex bg-slate-50 border border-slate-200 rounded-lg p-0.5 gap-0.5 hidden sm:flex">
                     {[
-                      { key: 'duration', icon: <TrendingUp size={11} />, label: 'Tempo'      },
+                      { key: 'duration', icon: <Clock size={11} />, label: 'Tempo'      },
                       { key: 'results',  icon: <BarChart2  size={11} />, label: 'Resultados' },
                     ].map(({ key, icon, label }) => (
                       <button key={key} onClick={() => setChartMode(key)}
                         className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
-                          chartMode === key ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                          chartMode === key ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'
                         }`}>
                         {icon}{label}
                       </button>
                     ))}
                   </div>
-                </div>
-              )}
-              
-              {/* Navegação Global -> Todos os Testes: Envia o nome da build */}
-              {selectedExecution && (
-                <button 
-                  onClick={() => navigate(`/projects/${id}/executions/${selectedExecution.id}`, {
-                    state: { search: '', status: 'ALL', flakyOnly: false, buildName: selectedExecution.versionName }
-                  })}
-                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                >
-                  <Eye size={14} /> Ver todos os testes
-                </button>
-              )}
+                )}
+                
+                {selectedExecution && (
+                  <button 
+                    onClick={() => navigate(`/projects/${id}/executions/${selectedExecution.id}`, {
+                      state: { search: '', status: 'ALL', flakyOnly: false, buildName: selectedExecution.versionName }
+                    })}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                  >
+                    <Eye size={14} /> Ver todos os testes
+                  </button>
+                )}
+              </div>
             </div>
 
+            {/* Gráfico */}
             <div className="h-64">
               {selectedExecution ? (
                 <ResponsiveContainer width="100%" height="100%">
@@ -299,22 +385,22 @@ export default function ProjectDetails() {
                     <Tooltip content={<CustomTooltip mode="results" />} />
                   </PieChart>
                 </ResponsiveContainer>
-              ) : chartData.length > 0 ? (
+              ) : displayChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   {chartMode === 'duration' ? (
-                    <AreaChart data={chartData} onClick={handleChartClick} style={{ cursor: 'pointer' }} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                    <AreaChart data={displayChartData} onClick={handleChartClick} style={{ cursor: 'pointer' }} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                       <CartesianGrid horizontal={true} vertical={false} stroke="#f1f5f9" />
                       <XAxis dataKey="name" tick={{ fill: '#cbd5e1', fontSize: 10 }} axisLine={false} tickLine={false} dy={6} />
                       <YAxis tick={{ fill: '#cbd5e1', fontSize: 10 }} axisLine={false} tickLine={false} unit={timeUnit} width={45} tickCount={4} />
-                      <Tooltip content={<CustomTooltip unit={timeUnit} mode={chartMode} />} />
+                      <Tooltip content={<CustomTooltip unit={timeUnit} mode={chartMode} />} cursor={{fill: 'transparent', stroke: '#e2e8f0', strokeWidth: 1, strokeDasharray: '3 3'}} />
                       <Area type="monotone" dataKey="duration" stroke="#3b82f6" strokeWidth={1.5} fill="#eff6ff" />
                     </AreaChart>
                   ) : (
-                    <BarChart data={chartData} onClick={handleChartClick} style={{ cursor: 'pointer' }} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="40%" barGap={1}>
+                    <BarChart data={displayChartData} onClick={handleChartClick} style={{ cursor: 'pointer' }} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="40%" barGap={1}>
                       <CartesianGrid horizontal={true} vertical={false} stroke="#f1f5f9" />
                       <XAxis dataKey="name" tick={{ fill: '#cbd5e1', fontSize: 10 }} axisLine={false} tickLine={false} dy={6} />
                       <YAxis tick={{ fill: '#cbd5e1', fontSize: 10 }} axisLine={false} tickLine={false} width={36} tickCount={4} />
-                      <Tooltip content={<CustomTooltip mode={chartMode} />} />
+                      <Tooltip content={<CustomTooltip mode={chartMode} />} cursor={{fill: '#f8fafc'}} />
                       <Bar dataKey="passedCount" name="Passou" stackId="a" fill="#86efac" radius={[0, 0, 2, 2]} />
                       <Bar dataKey="failedCount" name="Falhou" stackId="a" fill="#fca5a5" radius={[2, 2, 0, 0]} />
                     </BarChart>
@@ -337,6 +423,7 @@ export default function ProjectDetails() {
             )}
           </div>
 
+          {/* ── TABELAS INFERIORES ── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -355,7 +442,12 @@ export default function ProjectDetails() {
                         <tr 
                           key={test.id} 
                           onClick={() => navigate(`/projects/${id}/executions/${test.testExecutionId}`, {
-                            state: { search: '', status: 'FAIL', flakyOnly: false, buildName: selectedExecution ? selectedExecution.versionName : 'Última Build' }
+                            state: { 
+                              search: '', 
+                              status: 'FAIL', 
+                              flakyOnly: false, 
+                              buildName: selectedExecution ? selectedExecution.versionName : latestRunName
+                            }
                           })}
                           className="hover:bg-red-50/40 transition-colors group cursor-pointer"
                         >
@@ -396,7 +488,12 @@ export default function ProjectDetails() {
                         <tr 
                           key={test.id} 
                           onClick={() => navigate(`/projects/${id}/executions/${test.testExecutionId}`, {
-                            state: { search: '', status: 'ALL', flakyOnly: true, buildName: selectedExecution ? selectedExecution.versionName : 'Última Build' }
+                            state: { 
+                              search: '', 
+                              status: 'ALL', 
+                              flakyOnly: true, 
+                              buildName: selectedExecution ? selectedExecution.versionName : latestRunName // <-- MUDOU AQUI
+                            }
                           })}
                           className="hover:bg-amber-50/40 transition-colors cursor-pointer group"
                         >
@@ -416,7 +513,6 @@ export default function ProjectDetails() {
                   </table>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12 gap-2 text-slate-400">
-                    <span className="text-2xl">🟢</span>
                     <p className="text-sm italic">Sem testes instáveis detetados.</p>
                   </div>
                 )}

@@ -68,6 +68,7 @@ public class SecurityConfiguration {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/ingest", "/api/v1/ingest/**").permitAll()
                         //doc api publica para consultas
@@ -89,7 +90,7 @@ public class SecurityConfiguration {
         // frontend
         configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
         // Permite os métodos HTTP necessários
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
         // Permite todos os cabeçalhos
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);

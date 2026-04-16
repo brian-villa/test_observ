@@ -22,10 +22,7 @@ export default function Layout({ children }) {
               </div>
               
               <div className="hidden md:flex space-x-1">
-                <div className="bg-slate-100 text-slate-900 px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2">
-                  <LayoutDashboard size={16} />
-                  Dashboard
-                </div>
+                
               </div>
             </div>
 

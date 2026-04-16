@@ -26,8 +26,8 @@ public class TestCaseService {
      * Lógica de "Find or Create" para os casos de teste.
      * Interage com o repositório para evitar duplicação de testes com o mesmo nome.
      *
-     * @param testName O nome descritivo do teste (ex: "Should render login button").
-     * @return A entidade TestCase persistida (recuperada ou recém-criada).
+     * @param testName O nome descritivo do teste.
+     * @return A entidade TestCase armazenada.
      */
 
     @Transactional

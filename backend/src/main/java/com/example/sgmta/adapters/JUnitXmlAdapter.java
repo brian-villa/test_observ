@@ -7,7 +7,6 @@ import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.dataformat.xml.XmlMapper;
 import tools.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
 import tools.jackson.dataformat.xml.annotation.JacksonXmlProperty;
-import tools.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -43,10 +42,13 @@ public class JUnitXmlAdapter implements ReportAdapter {
 
                     String fullName = testCase.classname + "." + testCase.name;
 
+                    String errorMsg = extractErrorMessage(testCase);
+
                     standardizedTests.add(new StandardizedPipelineReport.TestCaseResult(
                             fullName,
                             status,
-                            durationMs
+                            durationMs,
+                            errorMsg
                     ));
                 }
             }
@@ -72,6 +74,12 @@ public class JUnitXmlAdapter implements ReportAdapter {
         } catch (Exception e) {
             throw new RuntimeException("Falha ao processar o formato JUnit XML: " + e.getMessage(), e);
         }
+    }
+
+    private String extractErrorMessage(JUnitTestCase testCase) {
+        if (testCase.failure != null) return testCase.failure.toString();
+        if (testCase.error != null) return testCase.error.toString();
+        return null;
     }
 
     /**

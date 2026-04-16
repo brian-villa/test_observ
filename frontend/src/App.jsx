@@ -7,6 +7,7 @@ import Register from './pages/Register';
 import PrivateRoute from './components/PrivateRoute';
 import ProjectDetails from './pages/ProjectDetails';
 import ExecutionDetails from './pages/ExecutionDetails';
+import BuildHistory from './pages/BuildHistory';
 
 
 function App() {
@@ -45,6 +46,15 @@ function App() {
             element={
               <PrivateRoute>
                 <ExecutionDetails />
+              </PrivateRoute>
+            } 
+          />
+
+          <Route 
+            path="/projects/:projectId/build-history" 
+            element={
+              <PrivateRoute>
+                <BuildHistory />
               </PrivateRoute>
             } 
           />

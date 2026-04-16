@@ -79,16 +79,14 @@ public class IngestionService {
 
         for (StandardizedPipelineReport.TestCaseResult item : report.tests()) {
             TestCase testCase = testCaseService.findOrCreate(item.testName());
-
-            TestResult currentResult = testResultService.createResult(item.status(), execution, testCase);
-
+            TestResult currentResult = testResultService.createResult(item.status(), item.errorMessage(), execution, testCase);
             checkAndMarkFlaky(testCase, project, currentResult);
         }
     }
 
     /**
-     * Motor Flaky Atualizado:
-     * Agora guarda o estado diretamente no TestResult (currentResult).
+     *
+     * Guarda o estado diretamente no TestResult.
      */
     private void checkAndMarkFlaky(TestCase testCase, Project project, TestResult currentResult) {
         int threshold = project.getFlakyThreshold();

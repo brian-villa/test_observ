@@ -171,7 +171,9 @@ public class DashboardService {
                     durationMillis,
                     hasFailures,
                     testResultRepository.countByTestExecutionIdAndResult(execution.getId(), "PASS"),
-                    testResultRepository.countByTestExecutionIdAndResult(execution.getId(), "FAIL")
+                    testResultRepository.countByTestExecutionIdAndResult(execution.getId(), "FAIL"),
+                    testResultRepository.countByTestExecutionIdAndFlakyTrue(execution.getId())
+
             );
         });
     }

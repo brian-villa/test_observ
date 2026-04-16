@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Key, Activity, Calendar, Eye, EyeOff, Copy } from 'lucide-react';
+import { Key, Activity, Calendar, Eye, EyeOff, Copy, Edit2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export default function ProjectCard({ project }) {
+export default function ProjectCard({ project, onEdit }) {
   const [showToken, setShowToken] = useState(false);
 
   const formatDate = (dateString) => {
@@ -26,6 +26,12 @@ export default function ProjectCard({ project }) {
     setShowToken(!showToken);
   };
 
+  const handleEdit = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onEdit(project);
+  };
+
   return (
     <Link to={`/projects/${project.id}`} className="bg-white overflow-hidden rounded-xl shadow-sm border border-slate-200 hover:border-primary-400 hover:shadow-md transition-all group cursor-pointer block flex flex-col h-full">
       <div className="p-6 flex-1 flex flex-col">
@@ -34,9 +40,19 @@ export default function ProjectCard({ project }) {
           <div className="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center group-hover:bg-primary-100 transition-colors">
             <Activity className="text-primary-600" size={20} />
           </div>
-          <span className="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
-            Ativo
-          </span>
+          <div className="flex items-center gap-2 relative z-10">
+            <span className="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+              Ativo
+            </span>
+            {/* NOVO: Botão de Edição */}
+            <button 
+              onClick={handleEdit} 
+              className="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-md transition-colors" 
+              title="Configurações do Projeto"
+            >
+              <Edit2 size={16} />
+            </button>
+          </div>
         </div>
         
         <h3 className="text-lg font-semibold text-slate-900 truncate group-hover:text-primary-600 transition-colors">{project.name}</h3>

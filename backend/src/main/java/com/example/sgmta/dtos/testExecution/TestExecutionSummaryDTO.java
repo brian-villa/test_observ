@@ -14,5 +14,6 @@ public record TestExecutionSummaryDTO(
         @Schema(description = "Duração total em milissegundos") long durationMillis,
         @Schema(description = "Indica se a execução teve pelo menos uma falha") boolean hasFailures,
         @Schema(description = "Total de testes que passaram") long passedCount,
-        @Schema(description = "Total de testes que falharam") long failedCount
+        @Schema(description = "Total de testes que falharam") long failedCount,
+        @Schema(description = "Total de testes flaky") long flakyCount
 ) {}

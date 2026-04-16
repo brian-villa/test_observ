@@ -4,7 +4,7 @@ import Layout from '../components/Layout';
 import { 
   ArrowLeft, Activity, AlertTriangle, GitMerge, 
   Search, Filter, ChevronDown, ChevronRight, 
-  CheckCircle2, XCircle
+  CheckCircle2, XCircle, FileCode2
 } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -16,7 +16,7 @@ export default function ExecutionDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [testResults, setTestResults] = useState([]);
   
-  // Título Dinâmico (Recebe da navegação ou carrega autonomamente)
+  // Título
   const [buildName, setBuildName] = useState(location.state?.buildName || 'A carregar build...');
 
   const [searchTerm, setSearchTerm] = useState(location.state?.search || '');

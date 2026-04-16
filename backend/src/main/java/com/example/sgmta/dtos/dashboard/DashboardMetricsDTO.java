@@ -24,6 +24,6 @@ public record DashboardMetricsDTO(
         @Schema(description = "Lista resumo das falhas ocorridas na execução mais recente para preenchimento de tabelas")
         List<TestFailureSummaryDTO> recentFailures,
 
-        @Schema(description = "Lista resumo dos testes com maior taxa de instabilidade (Flaky) no projeto")
+        @Schema(description = "Lista resumo dos testes com maior taxa de instabilidade no projeto")
         List<FlakyTestSummaryDTO> flakyTests
 ) {}

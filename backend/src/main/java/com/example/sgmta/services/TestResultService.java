@@ -23,12 +23,11 @@ public class TestResultService {
     }
 
     @Transactional
-    public TestResult createResult(String resultStatus, TestExecution testExecution, TestCase testCase) {
-        TestResult newResult = new TestResult(resultStatus, false, testExecution, testCase);
+    public TestResult createResult(String resultStatus, String errorMessage, TestExecution testExecution, TestCase testCase) {
+        TestResult newResult = new TestResult(resultStatus, false, errorMessage, testExecution, testCase);
         return testResultRepository.save(newResult);
     }
 
-    // NOVO: Método Save genérico
     @Transactional
     public TestResult save(TestResult result) {
         return testResultRepository.save(result);
