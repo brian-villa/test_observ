@@ -11,6 +11,7 @@ import com.example.sgmta.repositories.TestResultRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,7 +51,7 @@ public class DashboardService {
         }
 
         List<TestExecution> recentExecutions = testExecutionRepository.findFilteredHistory(
-                projectId, null, null, PageRequest.of(0, 15)).getContent();
+                projectId, null, null, PageRequest.of(0, 15, Sort.by(Sort.Direction.DESC, "startTime"))).getContent();
 
         //erros se a lista vier vazia
         if (recentExecutions.isEmpty()) {
