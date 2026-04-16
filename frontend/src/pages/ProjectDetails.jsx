@@ -114,17 +114,31 @@ export default function ProjectDetails() {
 
   const fetchMetrics = useCallback(async (executionId = null, latestExecutionId = null) => {
     try {
-      const endpoint = executionId 
-        ? `/api/v1/projects/${id}/executions/${executionId}/metrics`
-        : `/api/v1/projects/${id}/dashboard/metrics/global`;
+      const isGlobal = !executionId;
+      const endpoint = isGlobal 
+        ? `/api/v1/projects/${id}/dashboard/metrics/global`
+        : `/api/v1/projects/${id}/executions/${executionId}/metrics`;
       
       const res = await api.get(endpoint);
       setMetrics(res.data);
 
       const targetId = executionId || latestExecutionId;
-      if (targetId) await fetchLists(targetId);
+      
+      if (targetId) {
+        const failRes = await api.get(`/executions/${targetId}/results?status=FAIL&size=20`);
+        setFailuresList(failRes.data.content || []);
+
+        if (isGlobal) {
+          const flakyRes = await api.get(`/api/v1/projects/${id}/dashboard/flaky`);
+          setFlakyList(flakyRes.data || []);
+        } else {
+          const flakyRes = await api.get(`/executions/${targetId}/results?flakyOnly=true&size=20`);
+          setFlakyList(flakyRes.data.content || []);
+        }
+      }
 
     } catch (error) {
+      console.error(error);
       toast.error('Erro ao carregar métricas.');
     }
   }, [id]);
