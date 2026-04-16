@@ -4,6 +4,7 @@ import com.example.sgmta.dtos.dashboard.*;
 import com.example.sgmta.dtos.testExecution.TestExecutionSummaryDTO;
 import com.example.sgmta.entities.Project;
 import com.example.sgmta.entities.TestExecution;
+import com.example.sgmta.entities.TestResult;
 import com.example.sgmta.repositories.ProjectRepository;
 import com.example.sgmta.repositories.TestExecutionRepository;
 import com.example.sgmta.repositories.TestResultRepository;
@@ -66,10 +67,8 @@ public class DashboardService {
             totalTestsGlobal += (passed + failed);
         }
 
-        long totalFlakysGlobais = testResultRepository.findByTestExecution_ProjectIdAndFlakyTrue(projectId).stream()
-                .map(r -> r.getTestCase().getId())
-                .distinct()
-                .count();
+        List<TestResult> activeFlakys = testResultRepository.findActiveFlakyTestsByProjectId(projectId);
+        long totalFlakysGlobais = activeFlakys.size();
 
         int globalHealthScore = 0;
         if (totalTestsGlobal > 0) {
@@ -198,21 +197,11 @@ public class DashboardService {
 
     public List<FlakyGlobalDTO> getGlobalFlakyTests(UUID projectId) {
 
-        List<com.example.sgmta.entities.TestResult> allFlakys =
-                testResultRepository.findByTestExecution_ProjectIdAndFlakyTrue(projectId);
+        // Pega apenas a "fotografia" mais recente que esteja instável
+        List<com.example.sgmta.entities.TestResult> latestFlakys =
+                testResultRepository.findActiveFlakyTestsByProjectId(projectId);
 
-        java.util.Map<UUID, com.example.sgmta.entities.TestResult> latestFlakys = new java.util.HashMap<>();
-
-        for (com.example.sgmta.entities.TestResult r : allFlakys) {
-            UUID tcId = r.getTestCase().getId();
-
-            if (!latestFlakys.containsKey(tcId) ||
-                    r.getTestExecution().getStartTime().isAfter(latestFlakys.get(tcId).getTestExecution().getStartTime())) {
-                latestFlakys.put(tcId, r);
-            }
-        }
-
-        return latestFlakys.values().stream()
+        return latestFlakys.stream()
                 .map(r -> new FlakyGlobalDTO(
                         r.getId(),
                         r.getTestCase().getTestName(),

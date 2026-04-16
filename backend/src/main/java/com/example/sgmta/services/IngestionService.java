@@ -96,30 +96,27 @@ public class IngestionService {
             return;
         }
 
-        int windowSize = Math.max(15, threshold * 3);
-
-        List<TestResult> recentResults = testResultRepository.findRecentResultsByTestCaseAndProject(
+        List<TestResult> window = testResultRepository.findRecentResultsByTestCaseAndProject(
                 testCase.getId(),
                 project.getId(),
-                PageRequest.of(0, windowSize, Sort.by(Sort.Direction.DESC, "testExecution.startTime"))
+                PageRequest.of(0, threshold, Sort.by(Sort.Direction.DESC, "testExecution.startTime"))
         ).getContent();
 
-        long failCount = 0;
-        boolean hasPass = false;
-
-        for (TestResult r : recentResults) {
-            if ("FAIL".equalsIgnoreCase(r.getResult())) {
-                failCount++;
-            } else if ("PASS".equalsIgnoreCase(r.getResult())) {
-                hasPass = true;
-            }
+        if (window.size() < threshold) {
+            return;
         }
 
-        boolean isNowFlaky = (failCount >= threshold && hasPass);
+        // Analisa a composição da janela
+        long passCount = window.stream().filter(r -> "PASS".equalsIgnoreCase(r.getResult())).count();
+        long failCount = window.stream().filter(r -> "FAIL".equalsIgnoreCase(r.getResult())).count();
 
-        if (isNowFlaky) {
+        if (passCount > 0 && failCount > 0) {
             currentResult.setFlaky(true);
-            testResultService.save(currentResult);
+            testResultRepository.save(currentResult);
+        }
+        else {
+            currentResult.setFlaky(false);
+            testResultRepository.save(currentResult);
         }
     }
 

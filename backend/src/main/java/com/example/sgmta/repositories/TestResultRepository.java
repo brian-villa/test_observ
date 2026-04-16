@@ -56,6 +56,21 @@ public interface TestResultRepository extends JpaRepository<TestResult, UUID> {
             @Param("isFlaky") Boolean isFlaky,
             Pageable pageable);
 
+    /**
+     * Busca APENAS os testes que estão ATIVAMENTE instáveis.
+     * Retorna o resultado se ele for 'flaky=true' E for a execução mais recente daquele TestCase.
+     */
+    @Query("SELECT r FROM TestResult r " +
+            "WHERE r.testExecution.project.id = :projectId " +
+            "AND r.flaky = true " +
+            "AND r.testExecution.startTime = (" +
+            "   SELECT MAX(r2.testExecution.startTime) " +
+            "   FROM TestResult r2 " +
+            "   WHERE r2.testCase.id = r.testCase.id " +
+            "   AND r2.testExecution.project.id = :projectId" +
+            ")")
+    List<TestResult> findActiveFlakyTestsByProjectId(@Param("projectId") UUID projectId);
+
     long countByTestExecutionIdAndFlakyTrue(UUID testExecutionId);
 
     List<TestResult> findByTestExecutionIdAndFlakyTrue(UUID testExecutionId);
