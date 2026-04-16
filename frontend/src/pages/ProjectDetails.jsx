@@ -22,14 +22,34 @@ function SkeletonCard() {
 }
 
 function MetricCard({ label, value, accent, sub }) {
-  const accentMap = { green: 'border-t-green-500', blue: 'border-t-blue-500', red: 'border-t-red-500', amber: 'border-t-amber-500' };
-  const textMap   = { green: 'text-slate-900',     blue: 'text-slate-900',    red: 'text-red-700', amber: 'text-amber-700' };
-  const labelMap  = { green: 'text-slate-500',     blue: 'text-slate-500',    red: 'text-red-600', amber: 'text-amber-600' };
+  // Mapeamento de cores atualizado: green, amber, red e o novo slate (neutro)
+  const accentMap = { 
+    green: 'border-t-green-500', 
+    blue: 'border-t-blue-500', 
+    red: 'border-t-red-500', 
+    amber: 'border-t-amber-500',
+    slate: 'border-t-slate-400' 
+  };
+  const textMap   = { 
+    green: 'text-slate-900', 
+    blue: 'text-slate-900', 
+    red: 'text-red-700', 
+    amber: 'text-amber-700',
+    slate: 'text-slate-900'
+  };
+  const labelMap  = { 
+    green: 'text-slate-500', 
+    blue: 'text-slate-500', 
+    red: 'text-red-600', 
+    amber: 'text-amber-600',
+    slate: 'text-slate-500'
+  };
+
   return (
-    <div className={`bg-white p-6 rounded-xl border border-slate-200 shadow-sm border-t-4 ${accentMap[accent]}`}>
-      <p className={`text-[11px] font-bold uppercase tracking-widest ${labelMap[accent]}`}>{label}</p>
+    <div className={`bg-white p-6 rounded-xl border border-slate-200 shadow-sm border-t-4 ${accentMap[accent] || accentMap.slate}`}>
+      <p className={`text-[11px] font-bold uppercase tracking-widest ${labelMap[accent] || labelMap.slate}`}>{label}</p>
       <div className="flex items-end gap-2 mt-3">
-        <span className={`text-4xl font-black tabular-nums ${textMap[accent]}`}>{value}</span>
+        <span className={`text-4xl font-black tabular-nums ${textMap[accent] || textMap.slate}`}>{value}</span>
       </div>
       {sub && <p className="text-xs text-slate-400 mt-1">{sub}</p>}
     </div>
@@ -55,7 +75,6 @@ function CustomTooltip({ active, payload, label, unit, mode }) {
           </p>
         );
       })}
-      {/* lembrete no tooltip */}
       {payload[0]?.payload?.isAggregated && (
         <p style={{ color: '#94a3b8', fontSize: '9px', marginTop: '6px', fontStyle: 'italic' }}>
           *Mostra apenas a tentativa mais recente desta versão.
@@ -72,7 +91,6 @@ export default function ProjectDetails() {
   const [isLoading, setIsLoading]       = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // Controles do Gráfico
   const [timeUnit, setTimeUnit]         = useState('s');
   const [chartMode, setChartMode]       = useState('results');
 
@@ -92,6 +110,14 @@ export default function ProjectDetails() {
    
   const [failuresList, setFailuresList] = useState([]);
   const [flakyList, setFlakyList] = useState([]);
+
+  // status
+  const healthStatus = useMemo(() => {
+    const score = metrics.healthScore;
+    if (score >= 90) return { accent: 'green', label: 'Estável' };
+    if (score >= 70) return { accent: 'amber', label: 'Atenção recomendada' };
+    return { accent: 'red', label: 'Requer ação imediata' };
+  }, [metrics.healthScore]);
 
   const normalizeTestName = (fullName) => {
     if (!fullName) return "Teste Desconhecido";
@@ -178,7 +204,6 @@ export default function ProjectDetails() {
     return 'Build Atual';
   }, [rawHistoryData]);
 
-  // EVOLUÇÃO VS TIMELINE
   const displayChartData = useMemo(() => {
     if (!rawHistoryData || rawHistoryData.length === 0) return [];
 
@@ -206,7 +231,6 @@ export default function ProjectDetails() {
       processedData = rawHistoryData;
     }
 
-    // Formata Recharts
     return processedData.map((exec, idx) => {
       const timeString = new Date(exec.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const cleanName = exec.versionName && exec.versionName !== 'N/A' ? exec.versionName : `Run ${idx + 1}`;
@@ -308,27 +332,24 @@ export default function ProjectDetails() {
             <MetricCard
               label={selectedExecution ? "Saúde da Build" : "Média de Saúde"} 
               value={`${metrics.healthScore}%`} 
-              accent="green"
-              sub={metrics.healthScore >= 90 ? 'Estável' : metrics.healthScore >= 70 ? 'Atenção recomendada' : 'Requer ação imediata'}
+              accent={healthStatus.accent} // Dinâmico (Verde/Amarelo/Vermelho)
+              sub={healthStatus.label}     // Dinâmico (Mensagem condizente)
             />
             <MetricCard 
               label={selectedExecution ? "Total de Testes (Build)" : "Total de Execuções"} 
               value={selectedExecution ? (selectedExecution.passedCount + selectedExecution.failedCount) : metrics.totalExecutions} 
-              accent="blue" 
+              accent="slate" // Neutro (Removido o azul)
             />
             <MetricCard
               label={selectedExecution ? "Flakys Ativos" : "Flakys"} 
               value={metrics.totalFlaky} 
-              accent={selectedExecution ? "amber" : "red"}
+              accent={healthStatus.accent} // Acompanha a saúde conforme solicitado
               sub={metrics.totalFlaky === 0 ? 'Sem instabilidades' : `${metrics.totalFlaky} instabilidade(s) a resolver`}
             />
           </div>
 
-          {/* ── PAINEL ── */}
           <div className="bg-white rounded-xl border border-slate-200 p-5 mb-8 shadow-sm">
-            
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4 border-b border-slate-100 pb-4">
-              
               {!selectedExecution ? (
                 <div className="flex bg-slate-50 p-1 rounded-lg border border-slate-200 w-full md:w-auto">
                   <button 
@@ -357,7 +378,6 @@ export default function ProjectDetails() {
                 </div>
               )}
 
-              {/*Tempo vs Resultados */}
               <div className="flex items-center gap-3 ml-auto">
                 {!selectedExecution && (
                   <div className="flex bg-slate-50 border border-slate-200 rounded-lg p-0.5 gap-0.5 hidden sm:flex">
@@ -388,7 +408,6 @@ export default function ProjectDetails() {
               </div>
             </div>
 
-            {/* Gráfico */}
             <div className="h-64">
               {selectedExecution ? (
                 <ResponsiveContainer width="100%" height="100%">
@@ -437,7 +456,6 @@ export default function ProjectDetails() {
             )}
           </div>
 
-          {/* ── TABELAS INFERIORES ── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -506,7 +524,7 @@ export default function ProjectDetails() {
                               search: '', 
                               status: 'ALL', 
                               flakyOnly: true, 
-                              buildName: selectedExecution ? selectedExecution.versionName : latestRunName // <-- MUDOU AQUI
+                              buildName: selectedExecution ? selectedExecution.versionName : latestRunName
                             }
                           })}
                           className="hover:bg-amber-50/40 transition-colors cursor-pointer group"
@@ -532,7 +550,6 @@ export default function ProjectDetails() {
                 )}
               </div>
             </div>
-
           </div>
         </>
       )}
