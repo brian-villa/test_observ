@@ -508,7 +508,7 @@ export default function ProjectDetails() {
                 <div className="flex items-center gap-2">
                   <AlertTriangle size={16} className="text-amber-500" />
                   <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
-                    {selectedExecution ? "Flakys Nesta Build" : "Flaky Global"}
+                    {selectedExecution ? "Flakys Nesta Build" : "Flaky Ativos"}
                   </h3>
                 </div>
               </div>

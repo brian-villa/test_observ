@@ -232,7 +232,7 @@ export default function ExecutionDetails() {
                                 <div className="flex items-start gap-2 bg-red-50/50 px-3 py-2.5 rounded-md border border-red-100">
                                   <XCircle className="text-red-500 mt-0.5 shrink-0" size={14} />
                                   <div className="w-full overflow-hidden">
-                                    <h4 className="font-bold text-red-800 text-[11px] uppercase tracking-wider mb-1.5">Detalhes da Falha</h4>
+                                    <h4 className="font-bold text-red-800 text-[11px] uppercase tracking-wider mb-1.5">Detalhes</h4>
                                     
                                     {(test.stackTrace || test.errorMessage || test.error_message) ? (
                                       <pre className="bg-white p-2.5 rounded border border-red-100 text-[11px] text-red-700 font-mono overflow-x-auto whitespace-pre-wrap leading-relaxed">
