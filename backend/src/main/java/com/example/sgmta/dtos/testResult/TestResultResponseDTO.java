@@ -21,5 +21,8 @@ public record TestResultResponseDTO(
         UUID testExecutionId,
 
         @Schema(description = "Justificação do porquê de o teste ser considerado flaky")
-        String flakyReason
+        String flakyReason,
+
+        @Schema(description = "Mensagem de erro ou stack trace caso o teste tenha falhado", example = "java.lang.AssertionError: expected [200] but found [404]")
+        String errorMessage
 ) {}

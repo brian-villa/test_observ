@@ -25,7 +25,8 @@ public class TestResultMapper {
                 testCaseName,
                 isFlaky,
                 executionId,
-                reason
+                reason,
+                result.getErrorMessage()
         );
     }
 
@@ -38,10 +39,10 @@ public class TestResultMapper {
             return null;
         }
 
-        // TODO FUTURO: Adicionar aqui a lógica para detetar Flip-Flop (Cenário B)
+        // TODO: Adicionar lógica para detetar Flip-Flop
 
 
-        // TODO FUTURO: Adicionar verificação de flag manual (Cenário C)
-        return "Este teste falhou consecutivamente em execuções recentes (excedendo o threshold do projeto) e demonstrou instabilidade ao alternar resultados.";
+        // TODO: Adicionar verificação de flag manual
+        return "Este teste falhou consecutivamente em execuções recentes excedendo o limiar do projeto e demonstrou instabilidade ao alternar resultados.";
     }
 }

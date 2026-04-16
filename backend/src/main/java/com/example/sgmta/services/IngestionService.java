@@ -79,7 +79,8 @@ public class IngestionService {
 
         for (StandardizedPipelineReport.TestCaseResult item : report.tests()) {
             TestCase testCase = testCaseService.findOrCreate(item.testName());
-            TestResult currentResult = testResultService.createResult(item.status(), item.errorMessage(), execution, testCase);
+            String cleanedError = cleanErrorMessage(item.errorMessage());
+            TestResult currentResult = testResultService.createResult(item.status(), cleanedError, execution, testCase);
             checkAndMarkFlaky(testCase, project, currentResult);
         }
     }
@@ -120,5 +121,27 @@ public class IngestionService {
             currentResult.setFlaky(true);
             testResultService.save(currentResult);
         }
+    }
+
+    private String cleanErrorMessage(String rawError) {
+        if (rawError == null || rawError.isBlank()) return null;
+
+        if (rawError.startsWith("{") && rawError.contains("message=")) {
+            try {
+                String clean = rawError;
+                if (clean.contains("message=")) {
+                    clean = clean.substring(clean.indexOf("message=") + 8);
+                }
+                // Remove o rasto do mapeamento se existir
+                clean = clean.replace("type=", "\nType: ")
+                        .replace(", =", "\n\nStack Trace:\n")
+                        .replace("}", "");
+
+                return clean.trim();
+            } catch (Exception e) {
+                return rawError;
+            }
+        }
+        return rawError;
     }
 }
