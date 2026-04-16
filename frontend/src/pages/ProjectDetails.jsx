@@ -22,7 +22,6 @@ function SkeletonCard() {
 }
 
 function MetricCard({ label, value, accent, sub }) {
-  // Mapeamento de cores atualizado: green, amber, red e o novo slate (neutro)
   const accentMap = { 
     green: 'border-t-green-500', 
     blue: 'border-t-blue-500', 
@@ -125,19 +124,6 @@ export default function ProjectDetails() {
     return parts.length > 2 ? parts.slice(-2).join('.') : fullName;
   };
 
-  const fetchLists = async (targetExecutionId) => {
-    if (!targetExecutionId) return;
-    try {
-      const failRes = await api.get(`/executions/${targetExecutionId}/results?status=FAIL&size=20`);
-      setFailuresList(failRes.data.content || []);
-
-      const flakyRes = await api.get(`/executions/${targetExecutionId}/results?flakyOnly=true&size=20`);
-      setFlakyList(flakyRes.data.content || []);
-    } catch (error) {
-      console.error('Erro ao buscar as listas de testes:', error);
-    }
-  };
-
   const fetchMetrics = useCallback(async (executionId = null, latestExecutionId = null) => {
     try {
       const isGlobal = !executionId;
@@ -193,6 +179,33 @@ export default function ProjectDetails() {
   useEffect(() => {
     if (id) fetchDashboardData();
   }, [fetchDashboardData, id]);
+
+  const lastExecutionTimeDisplay = useMemo(() => {
+    if (selectedExecution && selectedExecution.startTime) {
+      const date = new Date(selectedExecution.startTime);
+      return date.toLocaleDateString() + ' às ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    if (metrics.lastExecutionTime && metrics.lastExecutionTime !== 'Data desconhecida') {
+      return metrics.lastExecutionTime;
+    }
+
+    if (rawHistoryData && rawHistoryData.length > 0) {
+      const lastRun = rawHistoryData[rawHistoryData.length - 1];
+      if(lastRun && lastRun.startTime) {
+        const diffMinutes = Math.floor((new Date() - new Date(lastRun.startTime)) / 60000);
+        if (diffMinutes < 1) return "Agora mesmo";
+        if (diffMinutes < 60) return `Há ${diffMinutes} ${diffMinutes === 1 ? 'minuto' : 'minutos'}`;
+        
+        const diffHours = Math.floor(diffMinutes / 60);
+        if (diffHours < 24) return `Há ${diffHours} ${diffHours === 1 ? 'hora' : 'horas'}`;
+        
+        const diffDays = Math.floor(diffHours / 24);
+        return `Há ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}`;
+      }
+    }
+    return 'Sem dados';
+  }, [selectedExecution, metrics.lastExecutionTime, rawHistoryData]);
 
   const latestRunName = useMemo(() => {
     if (rawHistoryData && rawHistoryData.length > 0) {
@@ -297,11 +310,9 @@ export default function ProjectDetails() {
               <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
             </button>
           </div>
-          {metrics.lastExecutionTime && (
-            <p className="text-sm text-slate-400 flex items-center gap-1.5 mt-1">
-              <Clock size={13} /> {selectedExecution ? 'Executado:' : 'Última execução:'} {metrics.lastExecutionTime}
-            </p>
-          )}
+          <p className="text-sm text-slate-400 flex items-center gap-1.5 mt-1">
+            <Clock size={13} /> {selectedExecution ? 'Executado:' : 'Última execução:'} {lastExecutionTimeDisplay}
+          </p>
         </div>
 
         <div className="flex bg-slate-100 p-1 rounded-xl shadow-inner w-fit border border-slate-200">
@@ -332,18 +343,18 @@ export default function ProjectDetails() {
             <MetricCard
               label={selectedExecution ? "Saúde da Build" : "Média de Saúde"} 
               value={`${metrics.healthScore}%`} 
-              accent={healthStatus.accent} // Dinâmico (Verde/Amarelo/Vermelho)
-              sub={healthStatus.label}     // Dinâmico (Mensagem condizente)
+              accent={healthStatus.accent} 
+              sub={healthStatus.label} 
             />
             <MetricCard 
               label={selectedExecution ? "Total de Testes (Build)" : "Total de Execuções"} 
               value={selectedExecution ? (selectedExecution.passedCount + selectedExecution.failedCount) : metrics.totalExecutions} 
-              accent="slate" // Neutro (Removido o azul)
+              accent="slate" 
             />
             <MetricCard
               label={selectedExecution ? "Flakys Ativos" : "Flakys"} 
               value={metrics.totalFlaky} 
-              accent={healthStatus.accent} // Acompanha a saúde conforme solicitado
+              accent={healthStatus.accent} 
               sub={metrics.totalFlaky === 0 ? 'Sem instabilidades' : `${metrics.totalFlaky} instabilidade(s) a resolver`}
             />
           </div>
@@ -378,32 +389,48 @@ export default function ProjectDetails() {
                 </div>
               )}
 
-              <div className="flex items-center gap-3 ml-auto">
-                {!selectedExecution && (
-                  <div className="flex bg-slate-50 border border-slate-200 rounded-lg p-0.5 gap-0.5 hidden sm:flex">
-                    {[
-                      { key: 'duration', icon: <Clock size={11} />, label: 'Tempo'      },
-                      { key: 'results',  icon: <BarChart2  size={11} />, label: 'Resultados' },
-                    ].map(({ key, icon, label }) => (
-                      <button key={key} onClick={() => setChartMode(key)}
-                        className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
-                          chartMode === key ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+              <div className="flex flex-col items-end gap-2 ml-auto">
+                <div className="flex items-center gap-3">
+                  {!selectedExecution && (
+                    <div className="flex bg-slate-50 border border-slate-200 rounded-lg p-0.5 gap-0.5 hidden sm:flex">
+                      {[
+                        { key: 'duration', icon: <Clock size={11} />, label: 'Tempo'      },
+                        { key: 'results',  icon: <BarChart2  size={11} />, label: 'Resultados' },
+                      ].map(({ key, icon, label }) => (
+                        <button key={key} onClick={() => setChartMode(key)}
+                          className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
+                            chartMode === key ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                          }`}>
+                          {icon}{label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {selectedExecution && (
+                    <button 
+                      onClick={() => navigate(`/projects/${id}/executions/${selectedExecution.id}`, {
+                        state: { search: '', status: 'ALL', flakyOnly: false, buildName: selectedExecution.versionName }
+                      })}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                    >
+                      <Eye size={14} /> Ver todos os testes
+                    </button>
+                  )}
+                </div>
+
+                {/* CORREÇÃO 2: Botões de MS, S e M */}
+                {!selectedExecution && chartMode === 'duration' && (
+                  <div className="flex bg-slate-50 border border-slate-200 rounded-md p-0.5 gap-0.5">
+                    {['ms', 's', 'm'].map(unit => (
+                      <button key={unit} onClick={() => setTimeUnit(unit)}
+                        className={`px-2 py-0.5 text-[10px] font-bold rounded-sm uppercase transition-all ${
+                          timeUnit === unit ? 'bg-blue-100 text-blue-700' : 'text-slate-400 hover:bg-slate-200'
                         }`}>
-                        {icon}{label}
+                        {unit}
                       </button>
                     ))}
                   </div>
-                )}
-                
-                {selectedExecution && (
-                  <button 
-                    onClick={() => navigate(`/projects/${id}/executions/${selectedExecution.id}`, {
-                      state: { search: '', status: 'ALL', flakyOnly: false, buildName: selectedExecution.versionName }
-                    })}
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                  >
-                    <Eye size={14} /> Ver todos os testes
-                  </button>
                 )}
               </div>
             </div>
