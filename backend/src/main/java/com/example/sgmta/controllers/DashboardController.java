@@ -2,6 +2,7 @@ package com.example.sgmta.controllers;
 
 import com.example.sgmta.dtos.dashboard.DashboardFiltersDTO;
 import com.example.sgmta.dtos.dashboard.DashboardMetricsDTO;
+import com.example.sgmta.dtos.dashboard.FlakyGlobalDTO;
 import com.example.sgmta.dtos.testExecution.TestExecutionSummaryDTO;
 import com.example.sgmta.services.DashboardService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,6 +18,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -80,5 +82,13 @@ public class DashboardController {
     @GetMapping("/{projectId}/dashboard/filters")
     public ResponseEntity<DashboardFiltersDTO> getFilters(@PathVariable UUID projectId) {
         return ResponseEntity.ok(dashboardService.getAvailableFilters(projectId));
+    }
+
+    @Operation(summary = "Obter Flakys Globais", description = "Retorna todos os testes instáveis ativos no projeto.")
+    @SecurityRequirement(name = "bearerAuth")
+    @GetMapping("/{projectId}/dashboard/flaky")
+    public ResponseEntity<List<FlakyGlobalDTO>> getGlobalFlakyTests(
+            @PathVariable UUID projectId) {
+        return ResponseEntity.ok(dashboardService.getGlobalFlakyTests(projectId));
     }
 }

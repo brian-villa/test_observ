@@ -1,9 +1,6 @@
 package com.example.sgmta.services;
 
-import com.example.sgmta.dtos.dashboard.DashboardFiltersDTO;
-import com.example.sgmta.dtos.dashboard.DashboardMetricsDTO;
-import com.example.sgmta.dtos.dashboard.FlakyTestSummaryDTO;
-import com.example.sgmta.dtos.dashboard.TestFailureSummaryDTO;
+import com.example.sgmta.dtos.dashboard.*;
 import com.example.sgmta.dtos.testExecution.TestExecutionSummaryDTO;
 import com.example.sgmta.entities.Project;
 import com.example.sgmta.entities.TestExecution;
@@ -196,6 +193,31 @@ public class DashboardService {
         return testResultRepository.findByTestExecutionIdAndFlakyTrue(execId).stream()
                 .limit(5)
                 .map(r -> new FlakyTestSummaryDTO(r.getId(), r.getTestCase().getTestName(), "Alta"))
+                .collect(Collectors.toList());
+    }
+
+    public List<FlakyGlobalDTO> getGlobalFlakyTests(UUID projectId) {
+
+        List<com.example.sgmta.entities.TestResult> allFlakys =
+                testResultRepository.findByTestExecution_ProjectIdAndFlakyTrue(projectId);
+
+        java.util.Map<UUID, com.example.sgmta.entities.TestResult> latestFlakys = new java.util.HashMap<>();
+
+        for (com.example.sgmta.entities.TestResult r : allFlakys) {
+            UUID tcId = r.getTestCase().getId();
+
+            if (!latestFlakys.containsKey(tcId) ||
+                    r.getTestExecution().getStartTime().isAfter(latestFlakys.get(tcId).getTestExecution().getStartTime())) {
+                latestFlakys.put(tcId, r);
+            }
+        }
+
+        return latestFlakys.values().stream()
+                .map(r -> new FlakyGlobalDTO(
+                        r.getId(),
+                        r.getTestCase().getTestName(),
+                        r.getTestExecution().getId()
+                ))
                 .collect(Collectors.toList());
     }
 }

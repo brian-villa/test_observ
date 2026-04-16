@@ -57,8 +57,4 @@ public interface TestExecutionRepository extends JpaRepository<TestExecution, UU
             @Param("versionName") String versionName,
             Pageable pageable);
 
-    /**
-     * Busca a última execução de um projeto.
-     */
-    Optional<TestExecution> findTopByProjectIdOrderByStartTimeDesc(UUID projectId);
 }
