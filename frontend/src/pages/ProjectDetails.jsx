@@ -96,6 +96,10 @@ export default function ProjectDetails() {
   const [historyView, setHistoryView]   = useState('evolution'); 
 
   const [selectedExecution, setSelectedExecution] = useState(null);
+  
+  // Novos estados para o filtro de Suite
+  const [availableSuites, setAvailableSuites] = useState([]);
+  const [selectedSuite, setSelectedSuite] = useState('');
 
   const [metrics, setMetrics] = useState({
     projectName: 'A carregar...',
@@ -110,7 +114,6 @@ export default function ProjectDetails() {
   const [failuresList, setFailuresList] = useState([]);
   const [flakyList, setFlakyList] = useState([]);
 
-  // status
   const healthStatus = useMemo(() => {
     const score = metrics.healthScore;
     if (score >= 90) return { accent: 'green', label: 'Estável' };
@@ -124,12 +127,26 @@ export default function ProjectDetails() {
     return parts.length > 2 ? parts.slice(-2).join('.') : fullName;
   };
 
+  // Carregar os filtros disponíveis no mount
+  useEffect(() => {
+    if (id) {
+      api.get(`/api/v1/projects/${id}/dashboard/filters`)
+        .then(res => setAvailableSuites(res.data.suites || []))
+        .catch(err => console.error("Erro ao carregar filtros", err));
+    }
+  }, [id]);
+
   const fetchMetrics = useCallback(async (executionId = null, latestExecutionId = null) => {
     try {
       const isGlobal = !executionId;
-      const endpoint = isGlobal 
+      let endpoint = isGlobal 
         ? `/api/v1/projects/${id}/dashboard/metrics/global`
         : `/api/v1/projects/${id}/executions/${executionId}/metrics`;
+      
+      // Injeta a query param da suite na métrica global
+      if (isGlobal && selectedSuite) {
+        endpoint += `?suiteName=${encodeURIComponent(selectedSuite)}`;
+      }
       
       const res = await api.get(endpoint);
       setMetrics(res.data);
@@ -141,7 +158,10 @@ export default function ProjectDetails() {
         setFailuresList(failRes.data.content || []);
 
         if (isGlobal) {
-          const flakyRes = await api.get(`/api/v1/projects/${id}/dashboard/flaky`);
+          let flakyEndpoint = `/api/v1/projects/${id}/dashboard/flaky`;
+          if (selectedSuite) flakyEndpoint += `?suiteName=${encodeURIComponent(selectedSuite)}`;
+          
+          const flakyRes = await api.get(flakyEndpoint);
           setFlakyList(flakyRes.data || []);
         } else {
           const flakyRes = await api.get(`/executions/${targetId}/results?flakyOnly=true&size=20`);
@@ -153,14 +173,19 @@ export default function ProjectDetails() {
       console.error(error);
       toast.error('Erro ao carregar métricas.');
     }
-  }, [id]);
+  }, [id, selectedSuite]);
 
   const fetchDashboardData = useCallback(async (showRefreshSpinner = false) => {
     try {
       if (showRefreshSpinner) setIsRefreshing(true);
       else setIsLoading(true);
 
-      const historyRes = await api.get(`/api/v1/projects/${id}/dashboard/history?size=100`);
+      let historyUrl = `/api/v1/projects/${id}/dashboard/history?size=100`;
+      if (selectedSuite) {
+        historyUrl += `&suiteName=${encodeURIComponent(selectedSuite)}`;
+      }
+
+      const historyRes = await api.get(historyUrl);
       const content = historyRes.data.content || [];
 
       setRawHistoryData([...content].reverse());
@@ -174,7 +199,7 @@ export default function ProjectDetails() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [id, selectedExecution, fetchMetrics]);
+  }, [id, selectedExecution, fetchMetrics, selectedSuite]);
 
   useEffect(() => {
     if (id) fetchDashboardData();
@@ -315,7 +340,7 @@ export default function ProjectDetails() {
           </p>
         </div>
 
-        <div className="flex bg-slate-100 p-1 rounded-xl shadow-inner w-fit border border-slate-200">
+        <div className="flex items-center bg-slate-100 p-1 rounded-xl shadow-inner w-fit border border-slate-200">
           <button 
             onClick={() => handleToggleView(null)}
             className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${
@@ -328,6 +353,22 @@ export default function ProjectDetails() {
             <button className="px-4 py-1.5 text-sm font-semibold rounded-lg bg-white text-blue-600 shadow-sm transition-all">
               Build Selecionada
             </button>
+          )}
+
+          {/* NOVO: SELECT DA SUITE DE TESTES */}
+          {!selectedExecution && availableSuites.length > 0 && (
+            <div className="ml-1 pl-2 pr-1 border-l border-slate-300 flex items-center">
+              <select 
+                value={selectedSuite} 
+                onChange={(e) => setSelectedSuite(e.target.value)}
+                className="bg-transparent text-sm font-semibold text-slate-600 outline-none cursor-pointer py-1 max-w-[150px] truncate"
+              >
+                <option value="">Todas as Suites</option>
+                {availableSuites.map(suite => (
+                  <option key={suite} value={suite}>{suite}</option>
+                ))}
+              </select>
+            </div>
           )}
         </div>
       </div>
@@ -419,7 +460,6 @@ export default function ProjectDetails() {
                   )}
                 </div>
 
-                {/* CORREÇÃO 2: Botões de MS, S e M */}
                 {!selectedExecution && chartMode === 'duration' && (
                   <div className="flex bg-slate-50 border border-slate-200 rounded-md p-0.5 gap-0.5">
                     {['ms', 's', 'm'].map(unit => (
