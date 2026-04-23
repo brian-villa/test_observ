@@ -29,7 +29,6 @@ public class DashboardService {
     private final TestExecutionRepository testExecutionRepository;
     private final TestResultRepository testResultRepository;
 
-
     public DashboardService(ProjectRepository projectRepository,
                             TestExecutionRepository testExecutionRepository,
                             TestResultRepository testResultRepository) {
@@ -39,7 +38,7 @@ public class DashboardService {
     }
 
     @Transactional(readOnly = true)
-    public DashboardMetricsDTO getGlobalMetrics(UUID projectId) {
+    public DashboardMetricsDTO getGlobalMetrics(UUID projectId, String suiteName) {
 
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
@@ -51,9 +50,8 @@ public class DashboardService {
         }
 
         List<TestExecution> recentExecutions = testExecutionRepository.findFilteredHistory(
-                projectId, null, null, PageRequest.of(0, 15, Sort.by(Sort.Direction.DESC, "startTime"))).getContent();
+                projectId, null, null, suiteName, PageRequest.of(0, 15, Sort.by(Sort.Direction.DESC, "startTime"))).getContent();
 
-        //erros se a lista vier vazia
         if (recentExecutions.isEmpty()) {
             return new DashboardMetricsDTO(project.getName(), 0, totalExecutions, 0, "Desconhecido", new ArrayList<>(), new ArrayList<>());
         }
@@ -69,12 +67,16 @@ public class DashboardService {
         }
 
         List<TestResult> activeFlakys = testResultRepository.findActiveFlakyTestsByProjectId(projectId);
+        if (suiteName != null && !suiteName.isBlank()) {
+            activeFlakys = activeFlakys.stream()
+                    .filter(f -> suiteName.equalsIgnoreCase(f.getTestExecution().getSuiteName()))
+                    .collect(Collectors.toList());
+        }
         long totalFlakysGlobais = activeFlakys.size();
 
         int globalHealthScore = 0;
         if (totalTestsGlobal > 0) {
             double baseSuccessRate = ((double) totalPassedGlobal / totalTestsGlobal) * 100.0;
-
             double penaltyPerFlaky = project.getFlakyPenalty() != null ? project.getFlakyPenalty() : 2.5;
             double flakyPenaltyTotal = totalFlakysGlobais * penaltyPerFlaky;
 
@@ -115,7 +117,9 @@ public class DashboardService {
         int buildHealthScore = 0;
         if (total > 0) {
             double baseSuccessRate = ((double) passed / total) * 100.0;
-            double flakyPenalty = activeFlakysInBuild * 2.5;
+
+            double penalty = execution.getProject().getFlakyPenalty() != null ? execution.getProject().getFlakyPenalty() : 2.5;
+            double flakyPenalty = activeFlakysInBuild * penalty;
             buildHealthScore = (int) Math.max(0, Math.round(baseSuccessRate - flakyPenalty));
         }
 
@@ -146,10 +150,10 @@ public class DashboardService {
 
     @Transactional(readOnly = true)
     public Page<TestExecutionSummaryDTO> getExecutionHistory(
-            UUID projectId, String branchName, String versionName, Pageable pageable) {
+            UUID projectId, String branchName, String versionName, String suiteName, Pageable pageable) {
 
         Page<TestExecution> executionPage = testExecutionRepository
-                .findFilteredHistory(projectId, branchName, versionName, pageable);
+                .findFilteredHistory(projectId, branchName, versionName, suiteName, pageable);
 
         return executionPage.map(execution -> {
             long durationMillis = 0L;
@@ -181,7 +185,6 @@ public class DashboardService {
     public DashboardFiltersDTO getAvailableFilters(UUID projectId) {
         List<String> suites = testExecutionRepository.findDistinctSuiteNamesByProjectId(projectId);
         List<String> versions = testExecutionRepository.findDistinctVersionNamesByProjectId(projectId);
-
         return new DashboardFiltersDTO(suites, versions);
     }
 
@@ -199,11 +202,16 @@ public class DashboardService {
                 .collect(Collectors.toList());
     }
 
-    public List<FlakyGlobalDTO> getGlobalFlakyTests(UUID projectId) {
+    public List<FlakyGlobalDTO> getGlobalFlakyTests(UUID projectId, String suiteName) {
 
-        // Pega apenas a "fotografia" mais recente que esteja instável
         List<com.example.sgmta.entities.TestResult> latestFlakys =
                 testResultRepository.findActiveFlakyTestsByProjectId(projectId);
+
+        if (suiteName != null && !suiteName.isBlank()) {
+            latestFlakys = latestFlakys.stream()
+                    .filter(f -> suiteName.equalsIgnoreCase(f.getTestExecution().getSuiteName()))
+                    .collect(Collectors.toList());
+        }
 
         return latestFlakys.stream()
                 .map(r -> new FlakyGlobalDTO(

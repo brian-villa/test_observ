@@ -41,8 +41,9 @@ public class DashboardController {
     })
     @GetMapping("/{projectId}/dashboard/metrics/global")
     public ResponseEntity<DashboardMetricsDTO> getGlobalMetrics(
-            @Parameter(description = "ID único do projeto") @PathVariable UUID projectId) {
-        return ResponseEntity.ok(dashboardService.getGlobalMetrics(projectId));
+            @Parameter(description = "ID único do projeto") @PathVariable UUID projectId,
+            @Parameter(description = "Filtro opcional por nome da suite") @RequestParam(required = false) String suiteName) {
+        return ResponseEntity.ok(dashboardService.getGlobalMetrics(projectId, suiteName));
     }
 
     @Operation(summary = "Métricas de uma Execução Específica", description = "Devolve o Health Score e detalhes de uma única build selecionada.")
@@ -58,7 +59,7 @@ public class DashboardController {
         return ResponseEntity.ok(dashboardService.getBuildMetrics(executionId));
     }
 
-    @Operation(summary = "Histórico de Execuções", description = "Retorna a lista paginada de execuções com possibilidade de filtragem por branch ou versão.")
+    @Operation(summary = "Histórico de Execuções", description = "Retorna a lista paginada de execuções com possibilidade de filtragem por branch, versão ou suite.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Página de execuções recuperada com sucesso")
@@ -68,9 +69,10 @@ public class DashboardController {
             @PathVariable UUID projectId,
             @RequestParam(required = false) String branchName,
             @RequestParam(required = false) String versionName,
+            @RequestParam(required = false) String suiteName,
             @PageableDefault(size = 10, sort = "startTime", direction = Sort.Direction.DESC) Pageable pageable) {
 
-        Page<TestExecutionSummaryDTO> history = dashboardService.getExecutionHistory(projectId, branchName, versionName, pageable);
+        Page<TestExecutionSummaryDTO> history = dashboardService.getExecutionHistory(projectId, branchName, versionName, suiteName, pageable);
         return ResponseEntity.ok(history);
     }
 
@@ -84,11 +86,12 @@ public class DashboardController {
         return ResponseEntity.ok(dashboardService.getAvailableFilters(projectId));
     }
 
-    @Operation(summary = "Obter Flakys Globais", description = "Retorna todos os testes instáveis ativos no projeto.")
+    @Operation(summary = "Obter Flakys Globais", description = "Retorna todos os testes instáveis ativos no projeto, filtráveis por suite.")
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/{projectId}/dashboard/flaky")
     public ResponseEntity<List<FlakyGlobalDTO>> getGlobalFlakyTests(
-            @PathVariable UUID projectId) {
-        return ResponseEntity.ok(dashboardService.getGlobalFlakyTests(projectId));
+            @PathVariable UUID projectId,
+            @RequestParam(required = false) String suiteName) {
+        return ResponseEntity.ok(dashboardService.getGlobalFlakyTests(projectId, suiteName));
     }
 }

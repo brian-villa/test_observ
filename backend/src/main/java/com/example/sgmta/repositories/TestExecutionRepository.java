@@ -45,16 +45,19 @@ public interface TestExecutionRepository extends JpaRepository<TestExecution, UU
             "LEFT JOIN te.version v " +
             "WHERE te.project.id = :projectId " +
             "AND (:branchName IS NULL OR te.branchName = :branchName) " +
-            "AND (:versionName IS NULL OR v.versionName = :versionName)",
+            "AND (:versionName IS NULL OR v.versionName = :versionName) " +
+            "AND (:suiteName IS NULL OR te.suiteName = :suiteName)",
             countQuery = "SELECT count(te) FROM TestExecution te " +
                     "LEFT JOIN te.version v " +
                     "WHERE te.project.id = :projectId " +
                     "AND (:branchName IS NULL OR te.branchName = :branchName) " +
-                    "AND (:versionName IS NULL OR v.versionName = :versionName)")
+                    "AND (:versionName IS NULL OR v.versionName = :versionName) " +
+                    "AND (:suiteName IS NULL OR te.suiteName = :suiteName)")
     Page<TestExecution> findFilteredHistory(
             @Param("projectId") UUID projectId,
             @Param("branchName") String branchName,
             @Param("versionName") String versionName,
+            @Param("suiteName") String suiteName, // Novo parâmetro
             Pageable pageable);
 
 }
