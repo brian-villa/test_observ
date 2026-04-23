@@ -74,8 +74,11 @@ public class DashboardService {
         int globalHealthScore = 0;
         if (totalTestsGlobal > 0) {
             double baseSuccessRate = ((double) totalPassedGlobal / totalTestsGlobal) * 100.0;
-            double flakyPenalty = totalFlakysGlobais * 2.5;
-            globalHealthScore = (int) Math.max(0, Math.round(baseSuccessRate - flakyPenalty));
+
+            double penaltyPerFlaky = project.getFlakyPenalty() != null ? project.getFlakyPenalty() : 2.5;
+            double flakyPenaltyTotal = totalFlakysGlobais * penaltyPerFlaky;
+
+            globalHealthScore = (int) Math.max(0, Math.round(baseSuccessRate - flakyPenaltyTotal));
         }
 
         TestExecution lastExec = recentExecutions.get(0);

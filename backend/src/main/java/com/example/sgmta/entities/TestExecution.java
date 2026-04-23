@@ -37,7 +37,7 @@ public class TestExecution {
     private LocalDateTime endTime;
 
     @Column(name = "suite_name", nullable = false)
-    @Schema(description = "Nome do grupo/suite de testes.", example = "Backend-Unit-Tests")
+    @Schema(description = "Nome da suite de testes.", example = "Backend-Unit-Tests")
     private String suiteName;
 
     @Column(name = "run_id", nullable = false)

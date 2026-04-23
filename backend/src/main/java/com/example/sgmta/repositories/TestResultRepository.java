@@ -75,8 +75,6 @@ public interface TestResultRepository extends JpaRepository<TestResult, UUID> {
 
     List<TestResult> findByTestExecutionIdAndFlakyTrue(UUID testExecutionId);
 
-    List<TestResult> findByTestExecution_ProjectIdAndFlakyTrue(UUID projectId);
-
     @Query("SELECT r FROM TestResult r WHERE r.testCase.id = :testCaseId AND r.testExecution.project.id = :projectId")
     Page<TestResult> findRecentResultsByTestCaseAndProject(
             @Param("testCaseId") UUID testCaseId,

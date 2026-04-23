@@ -45,6 +45,10 @@ public class Project {
     @Schema(description = "Quantidade de transições definida pelo utilizador que são toleradas antes de marcar um teste como Flaky neste projeto.", example = "3")
     private Integer flakyThreshold = 3;
 
+    @Column(name = "flaky_penalty", nullable = false)
+    @Schema(description = "Penalização percentual na saúde por cada teste flaky", example = "2.5")
+    private Double flakyPenalty = 2.5;
+
     /**
      *
      * Um projeto contém uma lista de utilizadores (equipa).

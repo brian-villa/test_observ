@@ -76,21 +76,21 @@ public class User implements UserDetails {
 
     @Override
     public boolean isAccountNonExpired() {
-        return true; // Conta nunca expira por defeito
+        return true;
     }
 
     @Override
     public boolean isAccountNonLocked() {
-        return true; // Conta não bloqueada por defeito
+        return true;
     }
 
     @Override
     public boolean isCredentialsNonExpired() {
-        return true; // Credenciais nunca expiram por defeito
+        return true;
     }
 
     @Override
     public boolean isEnabled() {
-        return true; // Utilizador ativo por defeito
+        return true;
     }
 }

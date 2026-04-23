@@ -23,7 +23,8 @@ public class ProjectMapper {
                 project.getDescription(),
                 project.getProjectToken(),
                 project.getCreatedAt(),
-                project.getFlakyThreshold()
+                project.getFlakyThreshold(),
+                project.getFlakyPenalty()z
         );
     }
 }
