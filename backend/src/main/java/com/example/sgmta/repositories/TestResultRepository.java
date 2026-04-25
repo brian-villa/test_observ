@@ -54,7 +54,8 @@ public interface TestResultRepository extends JpaRepository<TestResult, UUID> {
             @Param("searchTerm") String searchTerm,
             @Param("status") String status,
             @Param("isFlaky") Boolean isFlaky,
-            Pageable pageable);
+            Pageable pageable
+    );
 
     /**
      * Busca APENAS os testes que estão ATIVAMENTE instáveis.
@@ -79,7 +80,38 @@ public interface TestResultRepository extends JpaRepository<TestResult, UUID> {
     Page<TestResult> findRecentResultsByTestCaseAndProject(
             @Param("testCaseId") UUID testCaseId,
             @Param("projectId") UUID projectId,
-            Pageable pageable);
+            Pageable pageable
+    );
+
+    /**
+     * Pesquisa Global: Procura testes pelo nome dentro de um projeto
+     * e retorna APENAS a "fotografia" mais recente desse teste.
+     */
+    @Query("SELECT r FROM TestResult r " +
+            "LEFT JOIN r.testExecution.version v " +
+            "WHERE r.testExecution.project.id = :projectId " +
+            "AND (:branchName IS NULL OR r.testExecution.branchName = :branchName) " +
+            "AND (:suiteName IS NULL OR r.testExecution.suiteName = :suiteName) " +
+            "AND (:versionName IS NULL OR v.versionName = :versionName) " +
+            "AND LOWER(r.testCase.testName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) " +
+            "AND r.testExecution.startTime = (" +
+            "   SELECT MAX(r2.testExecution.startTime) " +
+            "   FROM TestResult r2 " +
+            "   LEFT JOIN r2.testExecution.version v2 " +
+            "   WHERE r2.testCase.id = r.testCase.id " +
+            "   AND r2.testExecution.project.id = :projectId " +
+            "   AND (:branchName IS NULL OR r2.testExecution.branchName = :branchName) " +
+            "   AND (:suiteName IS NULL OR r2.testExecution.suiteName = :suiteName)" +
+            "   AND (:versionName IS NULL OR v2.versionName = :versionName)" +
+            ")")
+    List<TestResult> searchLatestResultsByTestName(
+            @Param("projectId") UUID projectId,
+            @Param("searchTerm") String searchTerm,
+            @Param("branchName") String branchName,
+            @Param("suiteName") String suiteName,
+            @Param("versionName") String versionName,
+            Pageable pageable
+    );
 
 
 }

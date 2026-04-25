@@ -32,7 +32,7 @@ public class DashboardController {
         this.dashboardService = dashboardService;
     }
 
-    @Operation(summary = "Métricas Globais do Dashboard", description = "Devolve as métricas agregadas baseadas no histórico recente do projeto.")
+    @Operation(summary = "Métricas Globais do Dashboard", description = "Devolve as métricas agregadas da versão/suite/branch.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Métricas globais calculadas com sucesso"),
@@ -42,8 +42,11 @@ public class DashboardController {
     @GetMapping("/{projectId}/dashboard/metrics/global")
     public ResponseEntity<DashboardMetricsDTO> getGlobalMetrics(
             @Parameter(description = "ID único do projeto") @PathVariable UUID projectId,
-            @Parameter(description = "Filtro opcional por nome da suite") @RequestParam(required = false) String suiteName) {
-        return ResponseEntity.ok(dashboardService.getGlobalMetrics(projectId, suiteName));
+            @Parameter(description = "Filtro opcional por Branch") @RequestParam(required = false) String branchName,
+            @Parameter(description = "Filtro opcional por Versão") @RequestParam(required = false) String versionName,
+            @Parameter(description = "Filtro opcional por Suite") @RequestParam(required = false) String suiteName) {
+
+        return ResponseEntity.ok(dashboardService.getGlobalMetrics(projectId, branchName, versionName, suiteName));
     }
 
     @Operation(summary = "Métricas de uma Execução Específica", description = "Devolve o Health Score e detalhes de uma única build selecionada.")
@@ -86,12 +89,30 @@ public class DashboardController {
         return ResponseEntity.ok(dashboardService.getAvailableFilters(projectId));
     }
 
-    @Operation(summary = "Obter Flakys Globais", description = "Retorna todos os testes instáveis ativos no projeto, filtráveis por suite.")
+    @Operation(summary = "Obter Flakys Globais", description = "Retorna todos os testes instáveis ativos no projeto, filtráveis por branch, versão e suite.")
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/{projectId}/dashboard/flaky")
     public ResponseEntity<List<FlakyGlobalDTO>> getGlobalFlakyTests(
             @PathVariable UUID projectId,
+            @RequestParam(required = false) String branchName,
+            @RequestParam(required = false) String versionName,
             @RequestParam(required = false) String suiteName) {
-        return ResponseEntity.ok(dashboardService.getGlobalFlakyTests(projectId, suiteName));
+        return ResponseEntity.ok(dashboardService.getGlobalFlakyTests(projectId, branchName, versionName, suiteName));
+    }
+
+    @Operation(summary = "Pesquisa Global de Testes", description = "Procura testes pelo nome no projeto e devolve o seu último estado.")
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Lista de testes encontrada")
+    })
+    @GetMapping("/{projectId}/dashboard/search")
+    public ResponseEntity<List<com.example.sgmta.dtos.testResult.TestResultResponseDTO>> searchTests(
+            @PathVariable UUID projectId,
+            @Parameter(description = "Texto a pesquisar no nome do teste") @RequestParam String query,
+            @Parameter(description = "Filtro opcional por Branch") @RequestParam(required = false) String branchName,
+            @Parameter(description = "Filtro opcional por Versão") @RequestParam(required = false) String versionName,
+            @Parameter(description = "Filtro opcional por Suite") @RequestParam(required = false) String suiteName) {
+
+        return ResponseEntity.ok(dashboardService.searchTests(projectId, query, branchName, versionName, suiteName));
     }
 }

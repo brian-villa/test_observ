@@ -2,6 +2,7 @@ package com.example.sgmta.services;
 
 import com.example.sgmta.dtos.dashboard.*;
 import com.example.sgmta.dtos.testExecution.TestExecutionSummaryDTO;
+import com.example.sgmta.dtos.testResult.TestResultResponseDTO;
 import com.example.sgmta.entities.Project;
 import com.example.sgmta.entities.TestExecution;
 import com.example.sgmta.entities.TestResult;
@@ -38,7 +39,7 @@ public class DashboardService {
     }
 
     @Transactional(readOnly = true)
-    public DashboardMetricsDTO getGlobalMetrics(UUID projectId, String suiteName) {
+    public DashboardMetricsDTO getGlobalMetrics(UUID projectId, String branchName, String versionName, String suiteName) {
 
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
@@ -50,7 +51,7 @@ public class DashboardService {
         }
 
         List<TestExecution> recentExecutions = testExecutionRepository.findFilteredHistory(
-                projectId, null, null, suiteName, PageRequest.of(0, 15, Sort.by(Sort.Direction.DESC, "startTime"))).getContent();
+                projectId, branchName, versionName, suiteName, PageRequest.of(0, 15, Sort.by(Sort.Direction.DESC, "startTime"))).getContent();
 
         if (recentExecutions.isEmpty()) {
             return new DashboardMetricsDTO(project.getName(), 0, totalExecutions, 0, "Desconhecido", new ArrayList<>(), new ArrayList<>());
@@ -72,6 +73,28 @@ public class DashboardService {
                     .filter(f -> suiteName.equalsIgnoreCase(f.getTestExecution().getSuiteName()))
                     .collect(Collectors.toList());
         }
+        // Filtra por Branch
+        if (branchName != null && !branchName.isBlank()) {
+            activeFlakys = activeFlakys.stream()
+                    .filter(f -> branchName.equalsIgnoreCase(f.getTestExecution().getBranchName()))
+                    .collect(Collectors.toList());
+        }
+
+        // Filtra por Versão
+        if (versionName != null && !versionName.isBlank()) {
+            activeFlakys = activeFlakys.stream()
+                    .filter(f -> f.getTestExecution().getVersion() != null &&
+                            versionName.equalsIgnoreCase(f.getTestExecution().getVersion().getVersionName()))
+                    .collect(Collectors.toList());
+        }
+
+        // Filtra por Suite
+        if (suiteName != null && !suiteName.isBlank()) {
+            activeFlakys = activeFlakys.stream()
+                    .filter(f -> suiteName.equalsIgnoreCase(f.getTestExecution().getSuiteName()))
+                    .collect(Collectors.toList());
+        }
+
         long totalFlakysGlobais = activeFlakys.size();
 
         int globalHealthScore = 0;
@@ -169,6 +192,7 @@ public class DashboardService {
 
             return new TestExecutionSummaryDTO(
                     execution.getId(),
+                    execution.getBuildName(),
                     execution.getBranchName(),
                     resolvedVersionName,
                     execution.getStartTime(),
@@ -183,9 +207,10 @@ public class DashboardService {
     }
 
     public DashboardFiltersDTO getAvailableFilters(UUID projectId) {
+        List<String> branches = testExecutionRepository.findDistinctBranchNamesByProjectId(projectId);
         List<String> suites = testExecutionRepository.findDistinctSuiteNamesByProjectId(projectId);
         List<String> versions = testExecutionRepository.findDistinctVersionNamesByProjectId(projectId);
-        return new DashboardFiltersDTO(suites, versions);
+        return new DashboardFiltersDTO(suites, versions, branches);
     }
 
     private List<TestFailureSummaryDTO> getFailuresForExecution(UUID execId) {
@@ -202,10 +227,23 @@ public class DashboardService {
                 .collect(Collectors.toList());
     }
 
-    public List<FlakyGlobalDTO> getGlobalFlakyTests(UUID projectId, String suiteName) {
+    public List<FlakyGlobalDTO> getGlobalFlakyTests(UUID projectId, String branchName, String versionName, String suiteName) {
 
         List<com.example.sgmta.entities.TestResult> latestFlakys =
                 testResultRepository.findActiveFlakyTestsByProjectId(projectId);
+
+        if (branchName != null && !branchName.isBlank()) {
+            latestFlakys = latestFlakys.stream()
+                    .filter(f -> branchName.equalsIgnoreCase(f.getTestExecution().getBranchName()))
+                    .collect(Collectors.toList());
+        }
+
+        if (versionName != null && !versionName.isBlank()) {
+            latestFlakys = latestFlakys.stream()
+                    .filter(f -> f.getTestExecution().getVersion() != null &&
+                            versionName.equalsIgnoreCase(f.getTestExecution().getVersion().getVersionName()))
+                    .collect(Collectors.toList());
+        }
 
         if (suiteName != null && !suiteName.isBlank()) {
             latestFlakys = latestFlakys.stream()
@@ -219,6 +257,30 @@ public class DashboardService {
                         r.getTestCase().getTestName(),
                         r.getTestExecution().getId()
                 ))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Pesquisa testes por nome e devolve o DTO com o resultado mais recente,
+     * permitindo navegação rápida no Frontend.
+     */
+    @Transactional(readOnly = true)
+    public List<TestResultResponseDTO> searchTests(UUID projectId, String searchTerm, String branchName, String versionName, String suiteName) {
+        if (searchTerm == null || searchTerm.trim().isBlank()) {
+            return new ArrayList<>();
+        }
+
+        List<TestResult> results = testResultRepository.searchLatestResultsByTestName(
+                projectId,
+                searchTerm.trim(),
+                branchName,
+                suiteName,
+                versionName,
+                PageRequest.of(0, 10)
+        );
+
+        return results.stream()
+                .map(com.example.sgmta.mappers.TestResultMapper::toResponseDTO)
                 .collect(Collectors.toList());
     }
 }

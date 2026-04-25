@@ -20,6 +20,7 @@ public class TestExecutionMapper {
                 execution.getBranchName(),
                 execution.getSuiteName(),
                 execution.getRunId(),
+                execution.getBuildName(),
                 execution.getExecutionDate(),
                 execution.getStartTime(),
                 execution.getEndTime()

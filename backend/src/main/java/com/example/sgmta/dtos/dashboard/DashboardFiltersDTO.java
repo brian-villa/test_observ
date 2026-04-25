@@ -8,7 +8,9 @@ import java.util.List;
 public record DashboardFiltersDTO(
         @Schema(description = "Lista de suite de testes executadas", example = "Backend Unit Tests")
         List<String> suites,
-        @Schema(description = "Lista de versões executadas", example = "build 107")
-        List<String> versions
+        @Schema(description = "Lista de versões executadas", example = "version 1.2.2")
+        List<String> versions,
+        @Schema(description = "Lista de branches executadas", example = "main")
+        List<String> branches
 ) {
 }

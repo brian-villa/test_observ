@@ -8,6 +8,7 @@ import java.util.UUID;
 @Schema(description = "Resumo de uma execução para a tabela de Histórico")
 public record TestExecutionSummaryDTO(
         @Schema(description = "ID da execução") UUID executionId,
+        @Schema(description = "Nome da build") String buildName,
         @Schema(description = "Nome da branch") String branchName,
         @Schema(description = "Nome da versão") String versionName,
         @Schema(description = "Data de início") LocalDateTime startTime,

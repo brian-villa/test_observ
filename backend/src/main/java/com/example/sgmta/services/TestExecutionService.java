@@ -23,7 +23,7 @@ public class TestExecutionService {
      * Cria e persiste uma nova execução de testes associada a um Projeto e Versão.
      */
     @Transactional
-    public TestExecution createExecution(Project project, Version version, String branchName, LocalDateTime startTime, LocalDateTime endTime, String suiteName, String runId) {
+    public TestExecution createExecution(Project project, Version version, String branchName, LocalDateTime startTime, LocalDateTime endTime, String suiteName, String runId, String buildName) {
 
         TestExecution newExecution = new TestExecution(
                 LocalDateTime.now(),
@@ -32,6 +32,7 @@ public class TestExecutionService {
                 endTime,
                 suiteName,
                 runId,
+                buildName,
                 project,
                 version
         );

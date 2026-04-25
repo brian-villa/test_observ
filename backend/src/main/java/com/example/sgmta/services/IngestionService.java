@@ -43,7 +43,7 @@ public class IngestionService {
      * Processa a ingestão, agrupando testes na mesma Execução com base no Projeto + Suite + Execution ID.
      */
     @Transactional
-    public void ingest(StandardizedPipelineReport report, String suiteName, String executionId) {
+    public void ingest(StandardizedPipelineReport report, String suiteName, String executionId, String buildName) {
 
         Project project = projectRepository.findByProjectToken(report.projectToken())
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado para o token fornecido."));
@@ -73,7 +73,8 @@ public class IngestionService {
                     report.startTime(),
                     report.endTime(),
                     suiteName,
-                    executionId
+                    executionId,
+                    buildName
             );
         }
 

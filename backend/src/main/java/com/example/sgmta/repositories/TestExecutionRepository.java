@@ -57,7 +57,13 @@ public interface TestExecutionRepository extends JpaRepository<TestExecution, UU
             @Param("projectId") UUID projectId,
             @Param("branchName") String branchName,
             @Param("versionName") String versionName,
-            @Param("suiteName") String suiteName, // Novo parâmetro
-            Pageable pageable);
+            @Param("suiteName") String suiteName,
+            Pageable pageable
+    );
+
+    @Query("SELECT DISTINCT te.branchName FROM TestExecution te WHERE te.project.id = :projectId AND te.branchName IS NOT NULL")
+    List<String> findDistinctBranchNamesByProjectId(@Param("projectId") UUID projectId);
+
+
 
 }
