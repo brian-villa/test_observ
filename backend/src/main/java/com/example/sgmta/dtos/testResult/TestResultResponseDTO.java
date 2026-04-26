@@ -24,5 +24,8 @@ public record TestResultResponseDTO(
         String flakyReason,
 
         @Schema(description = "Mensagem de erro ou stack trace caso o teste tenha falhado", example = "java.lang.AssertionError: expected [200] but found [404]")
-        String errorMessage
+        String errorMessage,
+
+        @Schema(description = "Imagem da falha em formato Base64")
+        String screenshotBase64
 ) {}

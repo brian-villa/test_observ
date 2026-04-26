@@ -21,27 +21,21 @@ public class IngestionService {
     private final VersionService versionService;
     private final TestCaseService testCaseService;
     private final TestExecutionService testExecutionService;
-    private final TestResultService testResultService;
     private final TestExecutionRepository testExecutionRepository;
-
     private final TestResultRepository testResultRepository;
 
     public IngestionService(ProjectRepository projectRepository, VersionService versionService,
                             TestCaseService testCaseService, TestExecutionService testExecutionService,
-                            TestResultService testResultService, TestExecutionRepository testExecutionRepository,
+                            TestExecutionRepository testExecutionRepository,
                             TestResultRepository testResultRepository) {
         this.projectRepository = projectRepository;
         this.versionService = versionService;
         this.testCaseService = testCaseService;
         this.testExecutionService = testExecutionService;
-        this.testResultService = testResultService;
         this.testExecutionRepository = testExecutionRepository;
         this.testResultRepository = testResultRepository;
     }
 
-    /**
-     * Processa a ingestão, agrupando testes na mesma Execução com base no Projeto + Suite + Execution ID.
-     */
     @Transactional
     public void ingest(StandardizedPipelineReport report, String suiteName, String executionId, String buildName) {
 
@@ -57,7 +51,6 @@ public class IngestionService {
 
         if (existingExecOpt.isPresent()) {
             execution = existingExecOpt.get();
-
             if (report.startTime() != null && report.endTime() != null) {
                 long payloadDurationMillis = Duration.between(report.startTime(), report.endTime()).toMillis();
                 if (payloadDurationMillis > 0) {
@@ -67,79 +60,138 @@ public class IngestionService {
             }
         } else {
             execution = testExecutionService.createExecution(
-                    project,
-                    version,
-                    report.branchName(),
-                    report.startTime(),
-                    report.endTime(),
-                    suiteName,
-                    executionId,
-                    buildName
+                    project, version, report.branchName(),
+                    report.startTime(), report.endTime(),
+                    suiteName, executionId, buildName
             );
         }
 
         for (StandardizedPipelineReport.TestCaseResult item : report.tests()) {
             TestCase testCase = testCaseService.findOrCreate(item.testName());
-            String cleanedError = cleanErrorMessage(item.errorMessage());
-            TestResult currentResult = testResultService.createResult(item.status(), cleanedError, execution, testCase);
+
+            ExtractionResult extraction = extractScreenshotAndCleanError(item.errorMessage());
+
+            // Um único save atómico com cleanError + screenshot juntos.
+            TestResult currentResult = testResultRepository.save(new TestResult(
+                    item.status(),
+                    false,
+                    extraction.cleanError(),
+                    extraction.screenshot(),
+                    execution,
+                    testCase
+            ));
+
             checkAndMarkFlaky(testCase, project, currentResult);
         }
     }
 
-    /**
-     *
-     * Guarda o estado diretamente no TestResult.
-     */
     private void checkAndMarkFlaky(TestCase testCase, Project project, TestResult currentResult) {
         int threshold = project.getFlakyThreshold();
 
         if (threshold <= 0) {
+            currentResult.setFlaky(false);
+            testResultRepository.save(currentResult);
             return;
         }
 
-        List<TestResult> window = testResultRepository.findRecentResultsByTestCaseAndProject(
-                testCase.getId(),
-                project.getId(),
-                PageRequest.of(0, threshold, Sort.by(Sort.Direction.DESC, "testExecution.startTime"))
-        ).getContent();
+        Version currentVersion = currentResult.getTestExecution().getVersion();
+        List<TestResult> window;
+
+        if (currentVersion != null) {
+            window = testResultRepository.findRecentResultsByTestCaseProjectAndVersion(
+                    testCase.getId(),
+                    project.getId(),
+                    currentVersion.getId(),
+                    PageRequest.of(0, threshold, Sort.by(Sort.Direction.DESC, "testExecution.startTime"))
+            ).getContent();
+        } else {
+            window = testResultRepository.findRecentResultsByTestCaseAndProject(
+                    testCase.getId(),
+                    project.getId(),
+                    PageRequest.of(0, threshold, Sort.by(Sort.Direction.DESC, "testExecution.startTime"))
+            ).getContent();
+        }
 
         if (window.size() < threshold) {
+            currentResult.setFlaky(false);
+            testResultRepository.save(currentResult);
             return;
         }
 
-        // Analisa a composição da janela
         long passCount = window.stream().filter(r -> "PASS".equalsIgnoreCase(r.getResult())).count();
         long failCount = window.stream().filter(r -> "FAIL".equalsIgnoreCase(r.getResult())).count();
 
-        if (passCount > 0 && failCount > 0) {
-            currentResult.setFlaky(true);
-            testResultRepository.save(currentResult);
-        }
-        else {
-            currentResult.setFlaky(false);
-            testResultRepository.save(currentResult);
-        }
+        currentResult.setFlaky(passCount > 0 && failCount > 0);
+        testResultRepository.save(currentResult);
     }
 
-    private String cleanErrorMessage(String rawError) {
-        if (rawError == null || rawError.isBlank()) return null;
+    private record ExtractionResult(String cleanError, String screenshot) {}
 
-        if (rawError.startsWith("{") && rawError.contains("message=")) {
+    /**
+     * Extração agnóstica de imagens!
+     * Procura automaticamente por padrões de Base64 (JPEG ou PNG) dentro do log de erro,
+     * ignorando quebras de linha introduzidas pelo XML.
+     */
+    private ExtractionResult extractScreenshotAndCleanError(String rawError) {
+        if (rawError == null || rawError.isBlank()) {
+            return new ExtractionResult(null, null);
+        }
+
+        String cleanError = rawError;
+        String screenshot = null;
+
+        // REGEX MAGIA: Procura por uma string que comece por assinatura JPEG (/9j/) ou PNG (iVBORw0)
+        // O \\r\\n permite que o Regex salte as quebras de linha do XML.
+        // Ele vai PARAR automaticamente quando encontrar um espaço (ex: " at com.example...")
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(?:/9j/|iVBORw0KGgo)[A-Za-z0-9+/=\\r\\n]{500,}");
+        java.util.regex.Matcher matcher = pattern.matcher(cleanError);
+
+        if (matcher.find()) {
+            // Extrai a imagem e remove TODAS as quebras de linha para o HTML renderizar perfeitamente
+            screenshot = matcher.group(0).replaceAll("[\\r\\n]", "");
+
+            // Remove o Base64 gigante do log para a interface ficar limpa
+            cleanError = cleanError.replace(matcher.group(0), "[EVIDENCIA_VISUAL_EXTRAIDA]");
+        }
+
+        // Limpeza do formato {message=..., type=..., =STACKTRACE} do JUnit/Surefire
+        if (cleanError.startsWith("{") && cleanError.contains("message=")) {
             try {
-                String clean = rawError;
-                if (clean.contains("message=")) {
-                    clean = clean.substring(clean.indexOf("message=") + 8);
-                }
-                // Remove o rasto do mapeamento se existir
-                clean = clean.replace("type=", "\nType: ")
-                        .replace(", =", "\n\nStack Trace:\n")
-                        .replace("}", "");
+                int msgStart = cleanError.indexOf("message=") + 8;
+                int stackStart = cleanError.indexOf(", =");
+                int typeStart  = cleanError.indexOf(", type=");
 
-                return clean.trim();
-            } catch (Exception e) {
-                return rawError;
+                int msgEnd = cleanError.length();
+                if (typeStart > msgStart) msgEnd = Math.min(msgEnd, typeStart);
+
+                String messageField = cleanError.substring(msgStart, msgEnd).trim();
+                if (messageField.endsWith(",")) messageField = messageField.substring(0, messageField.length() - 1).trim();
+
+                String typeField = "";
+                if (typeStart >= 0) {
+                    int typeValueStart = typeStart + 7;
+                    int typeValueEnd = stackStart > typeStart ? stackStart : cleanError.length();
+                    if (typeValueEnd > typeValueStart) {
+                        typeField = cleanError.substring(typeValueStart, typeValueEnd).trim();
+                        if (typeField.endsWith(",")) typeField = typeField.substring(0, typeField.length() - 1).trim();
+                    }
+                }
+
+                StringBuilder sb = new StringBuilder();
+                if (!messageField.isBlank()) sb.append(messageField);
+                if (!typeField.isBlank())    sb.append("\nType: ").append(typeField);
+
+                if (stackStart >= 0) {
+                    String stackPart = cleanError.substring(stackStart + 3);
+                    if (stackPart.endsWith("}")) stackPart = stackPart.substring(0, stackPart.length() - 1);
+                    if (!stackPart.isBlank()) sb.append("\n\nStack Trace:\n").append(stackPart.trim());
+                }
+                cleanError = sb.toString().trim();
+            } catch (Exception ignored) {
+                cleanError = cleanError.replace("[EVIDENCIA_VISUAL_EXTRAIDA]", "");
             }
         }
-        return rawError;
+
+        return new ExtractionResult(cleanError.trim(), screenshot);
     }
 }
