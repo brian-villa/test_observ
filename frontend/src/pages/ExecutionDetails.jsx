@@ -4,7 +4,7 @@ import Layout from '../components/Layout';
 import { 
   ArrowLeft, Activity, AlertTriangle, GitMerge, 
   Search, Filter, ChevronDown, ChevronRight, 
-  CheckCircle2, XCircle, FileCode2
+  CheckCircle2, XCircle, FileCode2, Image as ImageIcon
 } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -23,6 +23,9 @@ export default function ExecutionDetails() {
   const [showOnlyFlaky, setShowOnlyFlaky] = useState(location.state?.flakyOnly || false);
   const [expandedRowId, setExpandedRowId] = useState(null);
 
+  // Modal para imagem
+  const [fullscreenImage, setFullscreenImage] = useState(null);
+
   const normalizeTestName = (fullName) => {
     if (!fullName) return "Teste Desconhecido";
     const parts = fullName.split('.');
@@ -35,7 +38,6 @@ export default function ExecutionDetails() {
         try {
           const historyRes = await api.get(`/api/v1/projects/${projectId}/dashboard/history?size=100`);
           const exec = historyRes.data.content?.find(e => e.id === executionId || e.executionId === executionId);
-          // AQUI: Lê o buildName do backend
           if (exec && exec.buildName) {
             setBuildName(exec.buildName);
           } else if (exec && exec.versionName && exec.versionName !== 'N/A') {
@@ -60,11 +62,22 @@ export default function ExecutionDetails() {
         params.append('flakyOnly', showOnlyFlaky);
         params.append('size', '2000'); 
 
-        const res = await api.get(`/executions/${executionId}/results?${params.toString()}`);
-        setTestResults(res.data.content || res.data || []);
+        const idsToFetch = location.state?.executionIds || [executionId];
+        
+        const promises = idsToFetch.map(id => api.get(`/executions/${id}/results?${params.toString()}`));
+        const responses = await Promise.all(promises);
+
+        const combinedResults = responses.flatMap(res => res.data.content || res.data || []);
+
+        // Remove duplicates from retries
+        const uniqueResults = Array.from(
+          new Map(combinedResults.map(item => [item.testCaseName || item.name, item])).values()
+        );
+        
+        setTestResults(uniqueResults);
         
       } catch (error) {
-        toast.error("Não foi possível carregar a lista de testes.");
+        toast.error("Não foi possível carregar a lista completa de testes.");
       } finally {
         setIsLoading(false);
       }
@@ -90,6 +103,29 @@ export default function ExecutionDetails() {
 
   return (
     <Layout>
+      {/* MODAL DE IMAGEM FULLSCREEN DINÂMICO (JPEG ou PNG) */}
+      {fullscreenImage && (
+        <div 
+          className="fixed inset-0 z-50 bg-slate-900/90 flex items-center justify-center p-4 backdrop-blur-sm"
+          onClick={() => setFullscreenImage(null)}
+        >
+          <div className="relative max-w-6xl max-h-[90vh] w-full flex flex-col items-center">
+            <button 
+              onClick={() => setFullscreenImage(null)}
+              className="absolute -top-10 right-0 text-white hover:text-red-400 bg-slate-800 p-2 rounded-full transition-colors"
+            >
+              <XCircle size={24} />
+            </button>
+            <img 
+              src={`data:image/${fullscreenImage.startsWith('/9j/') ? 'jpeg' : 'png'};base64,${fullscreenImage}`} 
+              alt="Screenshot Expandido" 
+              className="object-contain max-h-[85vh] rounded-lg shadow-2xl border border-slate-700"
+              onClick={(e) => e.stopPropagation()} 
+            />
+          </div>
+        </div>
+      )}
+
       <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <Link to={`/projects/${projectId}`} className="inline-flex items-center text-sm font-medium text-slate-500 mb-4 hover:text-slate-700 transition-colors">
@@ -157,6 +193,7 @@ export default function ExecutionDetails() {
                 <tr>
                   <th className="w-8 px-4 py-3"></th>
                   <th className="px-4 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nome do Teste</th>
+                  <th className="px-4 py-3 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider w-24">Evidência</th>
                   <th className="px-4 py-3 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider w-24">Flaky</th>
                   <th className="px-6 py-3 text-right text-[10px] font-bold text-slate-400 uppercase tracking-wider w-32">Status</th>
                 </tr>
@@ -167,6 +204,10 @@ export default function ExecutionDetails() {
                   const isPass = test.result === 'PASS';
                   const canExpand = isFail || test.isFlaky;
                   const fullName = test.testCaseName || test.name || "Teste Desconhecido";
+                  
+                  // FIX: Captura Base64 independentemente do nome do campo no DTO (screenshot vs screenshotBase64)
+                  const base64Data = test.screenshotBase64 || test.screenshot;
+                  const hasScreenshot = !!base64Data;
 
                   return (
                     <React.Fragment key={test.id}>
@@ -175,6 +216,15 @@ export default function ExecutionDetails() {
                           {canExpand && <span className="group-hover:text-blue-400 transition-colors">{expandedRowId === test.id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</span>}
                         </td>
                         <td className={`px-4 py-2.5 text-xs font-mono text-slate-600 break-all transition-colors ${canExpand ? 'group-hover:text-blue-700' : ''}`} title={fullName}>{normalizeTestName(fullName)}</td>
+                        
+                        <td className="px-4 py-2.5 text-center">
+                          {hasScreenshot ? (
+                            <ImageIcon size={14} className="text-blue-400 mx-auto" title="Captura de Ecrã disponível" />
+                          ) : (
+                            <span className="text-[10px] text-slate-300">-</span>
+                          )}
+                        </td>
+
                         <td className="px-4 py-2.5 text-center">{test.isFlaky && <AlertTriangle size={14} className="text-amber-500 mx-auto" />}</td>
                         <td className="px-6 py-2.5 text-right">
                           <span className={`inline-flex items-center justify-center gap-1 w-20 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest ${isPass ? 'bg-green-100 text-green-700' : isFail ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'}`}>
@@ -186,32 +236,67 @@ export default function ExecutionDetails() {
                       </tr>
                       {expandedRowId === test.id && canExpand && (
                         <tr className="bg-slate-50/50 border-b border-slate-100 shadow-inner">
-                          <td colSpan="4" className="px-8 py-4">
-                            <div className="flex flex-col gap-3">
-                              {test.isFlaky && (
-                                <div className="border-l-2 border-amber-400 bg-amber-50/50 px-3 py-2 rounded-r-md flex items-start gap-2">
-                                  <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
-                                  <div>
-                                    <span className="text-amber-800 font-bold text-[11px] uppercase tracking-wider block mb-0.5">Alerta de Instabilidade</span>
-                                    <p className="text-[11px] text-amber-700 leading-relaxed">{test.flakyReason || "Este teste demonstrou instabilidade no histórico recente desta pipeline."}</p>
+                          <td colSpan="5" className="px-8 py-6">
+                            
+                            <div className="flex flex-col lg:flex-row gap-6">
+                              {/* COLUNA ESQUERDA: Stack Trace / Razão */}
+                              <div className="flex-1 flex flex-col gap-3 min-w-0">
+                                {test.isFlaky && (
+                                  <div className="border-l-2 border-amber-400 bg-amber-50/50 px-3 py-2 rounded-r-md flex items-start gap-2">
+                                    <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
+                                    <div>
+                                      <span className="text-amber-800 font-bold text-[11px] uppercase tracking-wider block mb-0.5">Alerta de Instabilidade</span>
+                                      <p className="text-[11px] text-amber-700 leading-relaxed">{test.flakyReason || "Este teste demonstrou instabilidade no histórico recente desta pipeline."}</p>
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {isFail && (
+                                  <div className="flex flex-col bg-red-50/50 rounded-lg border border-red-100 h-full">
+                                    <div className="flex items-center gap-2 px-4 py-3 border-b border-red-100/50 bg-red-100/30 rounded-t-lg">
+                                      <XCircle className="text-red-500 shrink-0" size={16} />
+                                      <h4 className="font-bold text-red-800 text-xs uppercase tracking-wider">Log de Erro</h4>
+                                    </div>
+                                    <div className="p-4 overflow-x-auto custom-scrollbar">
+                                      {(test.stackTrace || test.errorMessage || test.error_message) ? (
+                                        <pre className="text-[11px] text-red-800 font-mono whitespace-pre-wrap leading-relaxed">
+                                          {test.stackTrace || test.errorMessage || test.error_message}
+                                        </pre>
+                                      ) : (
+                                        <p className="text-[11px] text-red-600 italic">O teste falhou, mas a infraestrutura não forneceu o motivo.</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* COLUNA DIREITA: Screenshot Base64 Dinâmico */}
+                              {hasScreenshot && (
+                                <div className="w-full lg:w-1/3 xl:w-1/4 shrink-0 flex flex-col">
+                                  <div className="flex items-center gap-2 px-4 py-3 border border-b-0 border-blue-100 bg-blue-50/80 rounded-t-lg">
+                                    <ImageIcon className="text-blue-500 shrink-0" size={16} />
+                                    <h4 className="font-bold text-blue-800 text-xs uppercase tracking-wider">Evidência Visual</h4>
+                                  </div>
+                                  <div className="p-2 border border-blue-100 bg-white rounded-b-lg flex flex-col items-center justify-center">
+                                    <div 
+                                      className="relative w-full aspect-video bg-slate-100 rounded border border-slate-200 overflow-hidden cursor-zoom-in group"
+                                      onClick={() => setFullscreenImage(base64Data)}
+                                    >
+                                      <img 
+                                        src={`data:image/${base64Data.startsWith('/9j/') ? 'jpeg' : 'png'};base64,${base64Data}`} 
+                                        alt="Thumbnail do Erro" 
+                                        className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                                      />
+                                      <div className="absolute inset-0 bg-blue-900/0 group-hover:bg-blue-900/10 transition-colors flex items-center justify-center">
+                                        <span className="bg-slate-900/80 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
+                                          Clique para Expandir
+                                        </span>
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
                               )}
-                              {isFail && (
-                                <div className="flex items-start gap-2 bg-red-50/50 px-3 py-2.5 rounded-md border border-red-100">
-                                  <XCircle className="text-red-500 mt-0.5 shrink-0" size={14} />
-                                  <div className="w-full overflow-hidden">
-                                    <h4 className="font-bold text-red-800 text-[11px] uppercase tracking-wider mb-1.5">Detalhes</h4>
-                                    {(test.stackTrace || test.errorMessage || test.error_message) ? (
-                                      <pre className="bg-white p-2.5 rounded border border-red-100 text-[11px] text-red-700 font-mono overflow-x-auto whitespace-pre-wrap leading-relaxed">
-                                        {test.stackTrace || test.errorMessage || test.error_message}
-                                      </pre>
-                                    ) : (
-                                      <p className="text-[11px] text-red-600 italic">O teste falhou, mas a infraestrutura de CI/CD não forneceu o motivo do erro.</p>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
+
                             </div>
                           </td>
                         </tr>
