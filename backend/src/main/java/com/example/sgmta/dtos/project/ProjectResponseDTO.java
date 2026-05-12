@@ -28,5 +28,8 @@ public record ProjectResponseDTO(
         LocalDateTime createdAt,
 
         @Schema(description = "Quantidade de transições de estado (PASS/FAIL) toleradas antes de marcar um teste como Flaky", example = "3")
-        Integer flakyThreshold
+        Integer flakyThreshold,
+
+        @Schema(description = "Penalização percentual por cada teste instável")
+        Double flakyPenalty
 ) {}

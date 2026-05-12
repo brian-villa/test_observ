@@ -24,7 +24,7 @@ public class TestResultService {
 
     @Transactional
     public TestResult createResult(String resultStatus, String errorMessage, TestExecution testExecution, TestCase testCase) {
-        TestResult newResult = new TestResult(resultStatus, false, errorMessage, testExecution, testCase);
+        TestResult newResult = new TestResult(resultStatus, false, errorMessage, null, testExecution, testCase);
         return testResultRepository.save(newResult);
     }
 

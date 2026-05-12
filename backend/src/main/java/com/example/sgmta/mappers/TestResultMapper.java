@@ -26,7 +26,8 @@ public class TestResultMapper {
                 isFlaky,
                 executionId,
                 reason,
-                result.getErrorMessage()
+                result.getErrorMessage(),
+                result.getScreenshot()
         );
     }
 

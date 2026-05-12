@@ -8,6 +8,7 @@ import java.util.UUID;
 @Schema(description = "Resumo de uma execução para a tabela de Histórico")
 public record TestExecutionSummaryDTO(
         @Schema(description = "ID da execução") UUID executionId,
+        @Schema(description = "Nome da build") String buildName,
         @Schema(description = "Nome da branch") String branchName,
         @Schema(description = "Nome da versão") String versionName,
         @Schema(description = "Data de início") LocalDateTime startTime,
@@ -15,5 +16,7 @@ public record TestExecutionSummaryDTO(
         @Schema(description = "Indica se a execução teve pelo menos uma falha") boolean hasFailures,
         @Schema(description = "Total de testes que passaram") long passedCount,
         @Schema(description = "Total de testes que falharam") long failedCount,
-        @Schema(description = "Total de testes flaky") long flakyCount
+        @Schema(description = "Total de testes flaky") long flakyCount,
+        @Schema(description = "nome da suite") String suiteName,
+        @Schema(description = "run id da suite") String runId
 ) {}

@@ -5,7 +5,7 @@ import * as yup from 'yup';
 import api from '../services/api';
 import Layout from '../components/Layout';
 import ProjectCard from '../components/ProjectCard';
-import { Plus, FolderGit2, X, Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Plus, FolderGit2, X, Loader2, RefreshCw, AlertTriangle, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const projectSchema = yup.object({
@@ -15,14 +15,18 @@ const projectSchema = yup.object({
     .typeError('Deve ser um número')
     .min(1, 'Mínimo de 1 falha')
     .max(10, 'Máximo de 10 falhas')
-    .required('Obrigatório')
+    .required('Obrigatório'),
+  flakyPenalty: yup.number()
+    .typeError('Deve ser um número decimal')
+    .min(0, 'Não pode ser negativo')
+    .max(15, 'Máximo de 15%')
+    .transform((value) => (isNaN(value) ? 2.5 : value)) // Default 2.5 se vier vazio
 }).required();
 
 export default function Dashboard() {
   const [projects, setProjects] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  //  está a criar ou editar
   const [modalConfig, setModalConfig] = useState({
     isOpen: false,
     mode: 'create', 
@@ -31,7 +35,7 @@ export default function Dashboard() {
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
     resolver: yupResolver(projectSchema),
-    defaultValues: { flakyThreshold: 3 }
+    defaultValues: { flakyThreshold: 3, flakyPenalty: 2.5 }
   });
 
   const fetchProjects = async () => {
@@ -50,7 +54,7 @@ export default function Dashboard() {
   }, []);
 
   const openCreateModal = () => {
-    reset({ name: '', description: '', flakyThreshold: 3 });
+    reset({ name: '', description: '', flakyThreshold: 3, flakyPenalty: 2.5 });
     setModalConfig({ isOpen: true, mode: 'create', projectData: null });
   };
 
@@ -58,7 +62,8 @@ export default function Dashboard() {
     reset({ 
       name: project.name, 
       description: project.description || '', 
-      flakyThreshold: project.flakyThreshold || 3 
+      flakyThreshold: project.flakyThreshold || 3,
+      flakyPenalty: project.flakyPenalty || 2.5
     });
     setModalConfig({ isOpen: true, mode: 'edit', projectData: project });
   };
@@ -86,18 +91,36 @@ export default function Dashboard() {
 
   const handleRegenerateToken = async () => {
     const isConfirmed = window.confirm(
-      "ATENÇÃO: Revogar esta API Key fará com que todas as pipelines de CI/CD atuais deixem de funcionar até que a nova chave seja configurada. Deseja continuar?"
+      "ATENÇÃO: Revogar esta API Key fará com que todas as pipelines atuais falhem. Continuar?"
     );
     
     if (isConfirmed) {
       try {
         const toastId = toast.loading('A gerar nova chave...');
         await api.patch(`/projects/${modalConfig.projectData.id}/rotate-token`);
-        toast.success('API Key revogada e gerada com sucesso!', { id: toastId });
+        toast.success('API Key gerada com sucesso!', { id: toastId });
         closeModal();
         fetchProjects();
       } catch (error) {
         toast.error('Erro ao regenerar a API Key.');
+      }
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    const isConfirmed = window.confirm(
+      "PERIGO: Tem a certeza absoluta que deseja apagar este projeto e todo o seu histórico de testes? Esta ação NÃO PODE ser revertida."
+    );
+    
+    if (isConfirmed) {
+      try {
+        const toastId = toast.loading('A apagar projeto...');
+        await api.delete(`/projects/${modalConfig.projectData.id}`);
+        toast.success('Projeto apagado com sucesso!', { id: toastId });
+        closeModal();
+        fetchProjects();
+      } catch (error) {
+        toast.error('Erro ao apagar projeto.');
       }
     }
   };
@@ -165,30 +188,44 @@ export default function Dashboard() {
                 <textarea {...register('description')} rows={2} className="block w-full rounded-md border-0 py-2 px-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 focus:ring-primary-600 sm:text-sm resize-none" placeholder="Breve descrição da finalidade..." />
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Limiar de Flakiness (Nº de falhas)</label>
-                <input type="number" {...register('flakyThreshold')} className={`block w-full rounded-md border-0 py-2 px-3 text-slate-900 shadow-sm ring-1 ring-inset ${errors.flakyThreshold ? 'ring-red-300 focus:ring-red-500' : 'ring-slate-300 focus:ring-primary-600'} sm:text-sm`} />
-                <p className="mt-1 text-[11px] text-slate-500">O teste será marcado como Flaky após este número de falhas seguidas por um sucesso.</p>
-                {errors.flakyThreshold && <p className="mt-1 text-xs text-red-500">{errors.flakyThreshold.message}</p>}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Limiar Flaky (Falhas)</label>
+                  <input type="number" {...register('flakyThreshold')} className={`block w-full rounded-md border-0 py-2 px-3 text-slate-900 shadow-sm ring-1 ring-inset ${errors.flakyThreshold ? 'ring-red-300 focus:ring-red-500' : 'ring-slate-300 focus:ring-primary-600'} sm:text-sm`} />
+                  {errors.flakyThreshold && <p className="mt-1 text-xs text-red-500">{errors.flakyThreshold.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Penalização na Saúde (%)</label>
+                  <input type="number" step="0.1" {...register('flakyPenalty')} className={`block w-full rounded-md border-0 py-2 px-3 text-slate-900 shadow-sm ring-1 ring-inset ${errors.flakyPenalty ? 'ring-red-300 focus:ring-red-500' : 'ring-slate-300 focus:ring-primary-600'} sm:text-sm`} />
+                  {errors.flakyPenalty && <p className="mt-1 text-xs text-red-500">{errors.flakyPenalty.message}</p>}
+                </div>
               </div>
+              <p className="text-[11px] text-slate-500 leading-tight">O teste será marcado como Flaky após {modalConfig.mode === 'create' ? 'N' : modalConfig.projectData?.flakyThreshold} falhas consecutivas, descontando do Health Score.</p>
 
-              {/* Apenas visível em modo Edição */}
               {modalConfig.mode === 'edit' && (
                 <div className="mt-6 pt-4 border-t border-red-100 bg-red-50/50 p-4 rounded-lg">
                   <div className="flex items-start gap-3">
                     <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={18} />
-                    <div>
-                      <h4 className="text-sm font-semibold text-red-800">Atenção</h4>
+                    <div className="w-full">
                       <p className="text-xs text-red-600 mt-1 mb-3 leading-relaxed">
-                        Se a sua API Key foi comprometida, pode revogá-la. Esta ação é irreversível e bloqueará as integrações ativas.
+                        Ações irreversíveis para a segurança e gestão deste projeto.
                       </p>
-                      <button 
-                        type="button" 
-                        onClick={handleRegenerateToken}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-100 hover:bg-red-200 rounded-md transition-colors"
-                      >
-                        <RefreshCw size={12} /> Gerar Nova API Key
-                      </button>
+                      <div className="flex flex-col gap-2">
+                        <button 
+                          type="button" 
+                          onClick={handleRegenerateToken}
+                          className="flex items-center justify-center w-full gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-100 hover:bg-red-200 rounded-md transition-colors"
+                        >
+                          <RefreshCw size={12} /> Gerar Nova API Key
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={handleDeleteProject}
+                          className="flex items-center justify-center w-full gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+                        >
+                          <Trash2 size={12} /> Apagar Projeto
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

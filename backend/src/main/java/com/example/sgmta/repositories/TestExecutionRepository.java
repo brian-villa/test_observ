@@ -1,6 +1,5 @@
 package com.example.sgmta.repositories;
 
-import com.example.sgmta.dtos.testExecution.TestExecutionSummaryDTO;
 import com.example.sgmta.entities.TestExecution;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -45,16 +44,57 @@ public interface TestExecutionRepository extends JpaRepository<TestExecution, UU
             "LEFT JOIN te.version v " +
             "WHERE te.project.id = :projectId " +
             "AND (:branchName IS NULL OR te.branchName = :branchName) " +
-            "AND (:versionName IS NULL OR v.versionName = :versionName)",
+            "AND (:versionName IS NULL OR v.versionName = :versionName) " +
+            "AND (:suiteName IS NULL OR te.suiteName = :suiteName)",
             countQuery = "SELECT count(te) FROM TestExecution te " +
                     "LEFT JOIN te.version v " +
                     "WHERE te.project.id = :projectId " +
                     "AND (:branchName IS NULL OR te.branchName = :branchName) " +
-                    "AND (:versionName IS NULL OR v.versionName = :versionName)")
+                    "AND (:versionName IS NULL OR v.versionName = :versionName) " +
+                    "AND (:suiteName IS NULL OR te.suiteName = :suiteName)")
     Page<TestExecution> findFilteredHistory(
             @Param("projectId") UUID projectId,
             @Param("branchName") String branchName,
             @Param("versionName") String versionName,
-            Pageable pageable);
+            @Param("suiteName") String suiteName,
+            Pageable pageable
+    );
+
+    @Query("SELECT DISTINCT te.branchName FROM TestExecution te WHERE te.project.id = :projectId AND te.branchName IS NOT NULL")
+    List<String> findDistinctBranchNamesByProjectId(@Param("projectId") UUID projectId);
+
+    /**
+     * Devolve o nome da versão mais recente do projeto (pela startTime mais alta).
+     */
+    @Query("SELECT te.version.versionName FROM TestExecution te " +
+            "WHERE te.project.id = :projectId AND te.version IS NOT NULL " +
+            "ORDER BY te.startTime DESC")
+    List<String> findLatestVersionNameByProjectId(@Param("projectId") UUID projectId, Pageable pageable);
+
+    /**
+     * Busca branches disponíveis para uma versão específica.
+     */
+    @Query("SELECT DISTINCT te.branchName FROM TestExecution te " +
+            "LEFT JOIN te.version v " +
+            "WHERE te.project.id = :projectId " +
+            "AND te.branchName IS NOT NULL " +
+            "AND (:versionName IS NULL OR v.versionName = :versionName)")
+    List<String> findDistinctBranchNamesByProjectIdAndVersion(
+            @Param("projectId") UUID projectId,
+            @Param("versionName") String versionName
+    );
+
+    /**
+     * Busca suites disponíveis para uma versão específica.
+     */
+    @Query("SELECT DISTINCT te.suiteName FROM TestExecution te " +
+            "LEFT JOIN te.version v " +
+            "WHERE te.project.id = :projectId " +
+            "AND te.suiteName IS NOT NULL " +
+            "AND (:versionName IS NULL OR v.versionName = :versionName)")
+    List<String> findDistinctSuiteNamesByProjectIdAndVersion(
+            @Param("projectId") UUID projectId,
+            @Param("versionName") String versionName
+    );
 
 }

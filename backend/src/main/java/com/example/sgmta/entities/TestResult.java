@@ -31,6 +31,10 @@ public class TestResult {
     @Schema(description = " motivo da falha do teste", example = "NullPointerException at line 45")
     private String errorMessage;
 
+    @Column(name = "screenshot_base64", columnDefinition = "TEXT")
+    @Schema(description = "Screenshot capturado no momento da falha (E2E)")
+    private String screenshot;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "test_execution_id", nullable = false)
     @Schema(description = "A execução desse teste pertence a que suite de teste")
@@ -43,10 +47,11 @@ public class TestResult {
 
     protected TestResult() {}
 
-    public TestResult(String result, Boolean flaky, String errorMessage, TestExecution testExecution, TestCase testCase) {
+    public TestResult(String result, Boolean flaky, String errorMessage, String screenshot, TestExecution testExecution, TestCase testCase) {
         this.result = result;
         this.flaky = flaky;
         this.errorMessage = errorMessage;
+        this.screenshot = screenshot;
         this.testExecution = testExecution;
         this.testCase = testCase;
     }

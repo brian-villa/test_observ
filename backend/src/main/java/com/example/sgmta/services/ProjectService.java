@@ -39,9 +39,10 @@ public class ProjectService {
 
         String projectToken = generateTokenFromName(data.name());
         Project newProject = new Project(data.name(), data.description(), projectToken);
+
+        newProject.setFlakyPenalty(data.flakyPenalty() != null ? data.flakyPenalty() : 2.5);
+
         newProject.addUser(creator);
-
-
 
         return projectRepository.save(newProject);
     }
@@ -67,6 +68,10 @@ public class ProjectService {
 
         if (data.flakyThreshold() != null) {
             project.setFlakyThreshold(data.flakyThreshold());
+        }
+
+        if (data.flakyPenalty() != null) {
+            project.setFlakyPenalty(data.flakyPenalty());
         }
 
         return projectRepository.save(project);

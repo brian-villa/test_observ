@@ -29,11 +29,12 @@ public class IngestionController {
     public ResponseEntity<String> ingest(
             @RequestBody String rawPayload,
             @RequestHeader("Content-Type") String contentType,
-            @RequestHeader("X-Project-Token") String token,
-            @RequestHeader("X-Version-Name") String version,
-            @RequestHeader("X-Branch-Name") String branch,
-            @Parameter(description = "Nome do grupo de testes") @RequestHeader("X-Suite-Name") String suiteName,
-            @Parameter(description = "ID único da pipeline") @RequestHeader("X-Execution-Id") String executionId
+            @RequestHeader("Project-Token") String token,
+            @RequestHeader("Version-Name") String version,
+            @RequestHeader("Branch-Name") String branch,
+            @Parameter(description = "Nome do grupo de testes") @RequestHeader("Suite-Name") String suiteName,
+            @Parameter(description = "ID único da pipeline") @RequestHeader("Execution-Id") String executionId,
+            @Parameter(description = "Nome amigável da build") @RequestHeader(value = "Build-Name", required = false, defaultValue = "Build Desconhecida") String buildName
     ) {
 
         ReportAdapter adapter = adapters.stream()
@@ -43,7 +44,7 @@ public class IngestionController {
 
         StandardizedPipelineReport report = adapter.adapt(rawPayload, token, version, branch);
 
-        ingestionService.ingest(report, suiteName, executionId);
+        ingestionService.ingest(report, suiteName, executionId, buildName);
 
         return ResponseEntity.accepted().body("Relatório recebido e processado com sucesso.");
     }
