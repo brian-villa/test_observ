@@ -126,7 +126,7 @@ public class IngestionService {
             return false;
         }
 
-        // Inicia a contagem somando o resultado atual em memória
+        // Inicia a contagem
         long passCount = currentStatus == TestStatus.PASS ? 1 : 0;
         long failCount = currentStatus == TestStatus.FAIL ? 1 : 0;
 
