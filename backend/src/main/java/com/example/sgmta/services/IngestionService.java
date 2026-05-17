@@ -14,9 +14,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class IngestionService {
+
+    /** Pré-compilado*/
+    private static final Pattern SCREENSHOT_PATTERN =
+            Pattern.compile("(?:/9j/|iVBORw0KGgo)[A-Za-z0-9+/=\\r\\n]{500,}");
 
     private final ProjectRepository projectRepository;
     private final VersionService versionService;
@@ -141,8 +147,7 @@ public class IngestionService {
         String cleanError = rawError;
         String screenshot = null;
 
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(?:/9j/|iVBORw0KGgo)[A-Za-z0-9+/=\\r\\n]{500,}");
-        java.util.regex.Matcher matcher = pattern.matcher(cleanError);
+        Matcher matcher = SCREENSHOT_PATTERN.matcher(cleanError);
 
         if (matcher.find()) {
             screenshot = matcher.group(0).replaceAll("[\\r\\n]", "");

@@ -23,3 +23,6 @@ api:
     jwt:
       secret: test-secret-key-for-unit-tests-only-sgmta
       expiration: 86400000
+
+cors:
+  allowed-origins: http://localhost:3000

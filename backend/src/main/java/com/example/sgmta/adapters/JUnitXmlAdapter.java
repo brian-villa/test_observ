@@ -61,9 +61,6 @@ public class JUnitXmlAdapter implements ReportAdapter {
 
             LocalDateTime endTime = startTime.plusSeconds((long) suite.time);
 
-            System.out.println(">>> suite.timestamp=" + suite.timestamp
-                    + " suite.time=" + suite.time);
-
             return new StandardizedPipelineReport(
                     projectToken,
                     versionName,
