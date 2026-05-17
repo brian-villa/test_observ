@@ -28,7 +28,7 @@ class IngestionServiceIT extends AbstractIntegrationTest {
     @Transactional
     void shouldMarkTestAsFlakyWhenWindowContainsPassAndFail() {
         // Arrange
-        // 1. Criar Projeto (Threshold Flaky = 3)
+        // Criar Projeto
         Project project = new Project("Flaky Project", "Desc", "flaky-token-123");
         project.setFlakyThreshold(3);
         projectRepository.save(project);
@@ -39,7 +39,7 @@ class IngestionServiceIT extends AbstractIntegrationTest {
         TestCase testCase = new TestCase("Login Test");
         testCaseRepository.save(testCase);
 
-        // 2. Criar histórico de TestResults (1 FAIL, 1 PASS prévios)
+        //  histórico de TestResults )
         TestExecution exec1 = new TestExecution(LocalDateTime.now().minusDays(2), "main", LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(2), "UI Tests", "exec-1", "Build 1", project, version);
         testExecutionRepository.save(exec1);
 
@@ -65,7 +65,7 @@ class IngestionServiceIT extends AbstractIntegrationTest {
 
         // Assert
         List<TestResult> results = testResultRepository.findAll();
-        // O 3º result criado pela ingestão
+        //result criado pela ingestão
         TestResult latestResult = results.stream()
                 .filter(r -> r.getTestExecution().getRunId().equals("exec-3"))
                 .findFirst()
@@ -73,5 +73,43 @@ class IngestionServiceIT extends AbstractIntegrationTest {
 
         assertThat(latestResult.getResult()).isEqualTo(TestStatus.PASS);
         assertThat(latestResult.getFlaky()).isTrue(); // Validou que havia FAIL e PASS na mesma janela
+    }
+
+    @Test
+    @Transactional
+    void shouldCreateSeparateTestCasesForDifferentProjects() {
+        // Arrange: dois projetos com tokens distintos
+        Project projectA = new Project("Project A", "Desc A", "token-project-a");
+        projectA.setFlakyThreshold(3);
+        projectRepository.save(projectA);
+
+        Project projectB = new Project("Project B", "Desc B", "token-project-b");
+        projectB.setFlakyThreshold(3);
+        projectRepository.save(projectB);
+
+        // Ambos os projetos enviam um teste com o mesmo nome
+        StandardizedPipelineReport.TestCaseResult sharedNameTest =
+                new StandardizedPipelineReport.TestCaseResult("Login Test", TestStatus.PASS, 100L, null);
+
+        StandardizedPipelineReport reportA = new StandardizedPipelineReport(
+                "token-project-a", "v1.0", "main",
+                LocalDateTime.now(), LocalDateTime.now(), List.of(sharedNameTest)
+        );
+        StandardizedPipelineReport reportB = new StandardizedPipelineReport(
+                "token-project-b", "v1.0", "main",
+                LocalDateTime.now(), LocalDateTime.now(), List.of(sharedNameTest)
+        );
+
+        // Act
+        ingestionService.ingest(reportA, "Suite", "exec-a-1", "Build 1");
+        ingestionService.ingest(reportB, "Suite", "exec-b-1", "Build 1");
+
+        // Assert: devem existir 2 TestCase separados com o mesmo nome (um por projeto)
+        List<TestCase> allTestCases = testCaseRepository.findAll();
+        long loginTestCount = allTestCases.stream()
+                .filter(tc -> tc.getTestName().equals("Login Test"))
+                .count();
+
+        assertThat(loginTestCount).isEqualTo(2);
     }
 }

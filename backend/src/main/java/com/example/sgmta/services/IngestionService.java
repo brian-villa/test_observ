@@ -68,7 +68,7 @@ public class IngestionService {
         }
 
         for (StandardizedPipelineReport.TestCaseResult item : report.tests()) {
-            TestCase testCase = testCaseService.findOrCreate(item.testName());
+            TestCase testCase = testCaseService.findOrCreate(item.testName(), project.getId());
 
             ExtractionResult extraction = extractScreenshotAndCleanError(item.errorMessage());
 
