@@ -202,14 +202,23 @@ public interface TestResultRepository extends JpaRepository<TestResult, UUID> {
     /**
      * Conta flakys activos numa versão.
      */
-    @Query("SELECT COUNT(DISTINCT r.testCase.id) FROM TestResult r " +
+    @Query("SELECT COUNT(r) FROM TestResult r " +
             "JOIN r.testExecution te " +
             "LEFT JOIN te.version v " +
             "WHERE te.project.id = :projectId " +
             "AND r.flaky = true " +
             "AND (:versionName IS NULL OR v.versionName = :versionName) " +
             "AND (:branchName IS NULL OR te.branchName = :branchName) " +
-            "AND (:suiteName IS NULL OR te.suiteName = :suiteName)")
+            "AND (:suiteName IS NULL OR te.suiteName = :suiteName) " +
+            "AND te.startTime = (" +
+            "   SELECT MAX(r2.testExecution.startTime) " +
+            "   FROM TestResult r2 " +
+            "   JOIN r2.testExecution te2 " +
+            "   LEFT JOIN te2.version v2 " +
+            "   WHERE r2.testCase.id = r.testCase.id " +
+            "   AND te2.project.id = :projectId " +
+            "   AND (:versionName IS NULL OR v2.versionName = :versionName)" +
+            ")")
     long countActiveFlakyByVersion(
             @Param("projectId") UUID projectId,
             @Param("versionName") String versionName,

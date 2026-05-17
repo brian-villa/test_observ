@@ -154,7 +154,6 @@ export default function ProjectDetails() {
 
   useEffect(() => { if (id) fetchDashboardData(); }, [fetchDashboardData, id, selectedVersion]);
 
-  // AGRUPAÇÃO VERSÕES (Modo Global)
   const groupedVersions = useMemo(() => {
     const map = new Map();
     rawHistoryData.forEach(run => {
@@ -170,24 +169,35 @@ export default function ProjectDetails() {
     return Array.from(map.values()).map(v => ({ ...v, buildCount: v.builds.size })).sort((a,b) => new Date(a.startTime) - new Date(b.startTime));
   }, [rawHistoryData]);
 
-  // AGRUPAÇÃO BUILDS: A Mágica de Agrupar pelo runId!
   const groupedBuilds = useMemo(() => {
     const map = new Map();
+
     rawHistoryData.forEach(run => {
-      // 1. Usa o runId da Pipeline! Isto impede que Retries ou builds com o mesmo nome se juntem!
       const key = run.runId || run.id; 
 
-      if (!map.has(key)) map.set(key, { 
-        runId: key,
-        buildName: run.buildName || `Build ${key.substring(0,8)}`, 
-        startTime: run.startTime, 
-        passedCount: 0, 
-        failedCount: 0, 
-        flakyCount: 0, 
-        durationMillis: 0, 
-        suites: new Set(), 
-        executions: [] 
-      });
+      if (!map.has(key)) { 
+        let suffix = '';
+        if (run.runId && run.runId.includes('-')) {
+          const parts = run.runId.split('-');
+          suffix = `-${parts[parts.length - 1]}`;
+        }
+
+        const baseName = run.buildName || 'Build';
+        const uniqueBuildName = `${baseName}${suffix}`;
+
+        map.set(key, { 
+          runId: key,
+          buildName: uniqueBuildName, 
+          startTime: run.startTime, 
+          passedCount: 0, 
+          failedCount: 0, 
+          flakyCount: 0, 
+          durationMillis: 0, 
+          suites: new Set(), 
+          executions: [] 
+        });
+      }
+      
       const b = map.get(key);
       b.passedCount += (run.passedCount || 0);
       b.failedCount += (run.failedCount || 0);
@@ -197,6 +207,7 @@ export default function ProjectDetails() {
       b.executions.push(run);
       if (new Date(run.startTime) < new Date(b.startTime)) b.startTime = run.startTime;
     });
+    
     return Array.from(map.values()).map(b => ({ ...b, suites: Array.from(b.suites) }));
   }, [rawHistoryData]);
 
@@ -208,8 +219,7 @@ export default function ProjectDetails() {
         groupedBuilds.forEach(b => { totalPass += b.passedCount; totalFail += b.failedCount; });
     }
     const total = totalPass + totalFail;
-    
-    // Agora contas também de forma segura pelo runId!
+
     const uniqueBuildsCount = !selectedVersion ? Array.from(new Set(rawHistoryData.map(r => r.runId || r.id))).length : groupedBuilds.length;
 
     return { total, buildsCount: uniqueBuildsCount };

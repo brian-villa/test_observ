@@ -15,13 +15,13 @@ Para garantir o envio dos dados, o sistema necessita dos seguintes *Headers* HTT
 
 |      Header       |                       Descrição                                    |              Exemplo                   |
 |                   |
-| `X-Project-Token` | **(Obrigatório)** A API Key gerada no Dashboard.                   | `123e4567-e89b-12d3-a456-426614174000` |
-| `X-Version-Name`  | Identificador da Release ou Build no CI.                           |   `BUILD-142` ou `v1.2.0`              |
-| `X-Branch-Name`   | A branch onde os testes correram.                                  | `feature/login` ou `main`              |
-| `X-Suite-Name`    | Nome do grupo de testes.                                           | `Backend-E2E`                          |
-| `X-Execution-Id`  | ID Único do pipeline no seu CI/CD.                                 | `1847592834`                           |
+| `Project-Token` | **(Obrigatório)** A API Key gerada no Dashboard.                   | `123e4567-e89b-12d3-a456-426614174000` |
+| `Version-Name`  | Identificador da Release ou Build no CI.                           |   `BUILD-142` ou `v1.2.0`              |
+| `Branch-Name`   | A branch onde os testes correram.                                  | `feature/login` ou `main`              |
+| `Suite-Name`    | Nome do grupo de testes.                                           | `Backend-E2E`                          |
+| `Execution-Id`  | ID Único do pipeline no seu CI/CD.                                 | `1847592834`                           |
 
-*(Dica de Ouro: Para o `X-Execution-Id`, evite usar apenas o número da Build. Concatene o ID da Build com a Tentativa (Retry) para que o sistema não confunda re-runs).*
+*(Dica de Ouro: Para o `Execution-Id`, evite usar apenas o número da Build. Concatene o ID da Build com a Tentativa (Retry) para que o sistema não confunda re-runs).*
 
 ## Exemplo GitHub Actions (Java/Maven via XML)
 
@@ -45,11 +45,11 @@ Adicione o seguinte passo (`step`) ao final do seu `workflow.yml`. É crucial us
               if [ -f "$file" ]; then
                 curl -X POST "$SGMTA_URL/api/v1/ingest" \
                      -H "Content-Type: application/xml" \
-                     -H "X-Project-Token: $SGMTA_TOKEN" \
-                     -H "X-Version-Name: $VERSION_NAME" \
-                     -H "X-Branch-Name: $BRANCH_NAME" \
-                     -H "X-Suite-Name: $SUITE_NAME" \
-                     -H "X-Execution-Id: $RUN_ID" \
+                     -H "Project-Token: $SGMTA_TOKEN" \
+                     -H "Version-Name: $VERSION_NAME" \
+                     -H "Branch-Name: $BRANCH_NAME" \
+                     -H "Suite-Name: $SUITE_NAME" \
+                     -H "Execution-Id: $RUN_ID" \
                      -d @"$file"
               fi
             done
@@ -64,11 +64,11 @@ post {
                 sh """
                 curl -X POST "[https://api.seu-dominio.com/api/v1/ingest](https://api.seu-dominio.com/api/v1/ingest)" \\
                      -H "Content-Type: application/json" \\
-                     -H "X-Project-Token: ${TOKEN}" \\
-                     -H "X-Version-Name: BUILD-${BUILD_NUMBER}" \\
-                     -H "X-Branch-Name: ${GIT_BRANCH}" \\
-                     -H "X-Suite-Name: Frontend-E2E" \\
-                     -H "X-Execution-Id: ${BUILD_TAG}" \\
+                     -H "Project-Token: ${TOKEN}" \\
+                     -H "Version-Name: BUILD-${BUILD_NUMBER}" \\
+                     -H "Branch-Name: ${GIT_BRANCH}" \\
+                     -H "Suite-Name: Frontend-E2E" \\
+                     -H "Execution-Id: ${BUILD_TAG}" \\
                      -d @target/test-results.json
                 """
             }

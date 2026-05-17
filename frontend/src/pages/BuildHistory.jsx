@@ -74,7 +74,18 @@ export default function BuildHistory() {
               const cleanSuite = run.suiteName 
                 ? run.suiteName.replace('Backend-', '') 
                 : (filterSuiteName ? filterSuiteName.replace('Backend-', '') : 'SUITE');
-              const displayBuildName = run.buildName || `Build ${validRunId.substring(0, 8)}`;
+
+              let suffix = '';
+              if (run.runId && run.runId.includes('-')) {
+                const parts = run.runId.split('-');
+                suffix = `-${parts[parts.length - 1]}`;
+              }
+
+              // Montar o nome final
+              const displayBuildName = run.buildName 
+                ? `${run.buildName}${suffix}` 
+                : `Build${suffix}`;
+
               const runVersion = run.versionName && run.versionName !== 'N/A' ? run.versionName : null;
 
               return (
