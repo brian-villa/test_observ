@@ -6,6 +6,7 @@ import com.example.sgmta.entities.enums.TestStatus;
 import com.example.sgmta.repositories.ProjectRepository;
 import com.example.sgmta.repositories.TestExecutionRepository;
 import com.example.sgmta.repositories.TestResultRepository;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -20,7 +21,7 @@ import java.util.regex.Pattern;
 @Service
 public class IngestionService {
 
-    /** Pré-compilado*/
+    /** Pré-compilado */
     private static final Pattern SCREENSHOT_PATTERN =
             Pattern.compile("(?:/9j/|iVBORw0KGgo)[A-Za-z0-9+/=\\r\\n]{500,}");
 
@@ -44,6 +45,7 @@ public class IngestionService {
     }
 
     @Transactional
+    @Operation(summary = "Processa o pipeline e ingere os resultados", description = "Extrai os logs, calcula a instabilidade (flaky) com janela deslizante e persiste os resultados.")
     public void ingest(StandardizedPipelineReport report, String suiteName, String executionId, String buildName) {
 
         Project project = projectRepository.findByProjectToken(report.projectToken())
@@ -75,67 +77,69 @@ public class IngestionService {
 
         for (StandardizedPipelineReport.TestCaseResult item : report.tests()) {
             TestCase testCase = testCaseService.findOrCreate(item.testName(), project.getId());
-
             ExtractionResult extraction = extractScreenshotAndCleanError(item.errorMessage());
 
-            // Um único save atómico com cleanError + screenshot juntos.
-            TestResult currentResult = testResultRepository.save(new TestResult(
+            boolean isFlaky = determineFlakyStatus(testCase, project, execution.getVersion(), item.status());
+
+            testResultRepository.save(new TestResult(
                     item.status(),
-                    false,
+                    isFlaky,
                     extraction.cleanError(),
                     extraction.screenshot(),
                     execution,
                     testCase
             ));
-
-            checkAndMarkFlaky(testCase, project, currentResult);
         }
     }
 
-    private void checkAndMarkFlaky(TestCase testCase, Project project, TestResult currentResult) {
+    /**
+     * Calcula se o teste atual é Flaky usando os (N-1) resultados anteriores.
+     */
+    @Operation(summary = "Determina o estado Flaky", description = "Busca N-1 resultados históricos da DB e cruza com o status atual para identificar instabilidade na janela.")
+    private boolean determineFlakyStatus(TestCase testCase, Project project, Version currentVersion, TestStatus currentStatus) {
         int threshold = project.getFlakyThreshold();
 
-        if (threshold <= 0) {
-            currentResult.setFlaky(false);
-            testResultRepository.save(currentResult);
-            return;
+        if (threshold <= 1) {
+            return false;
         }
 
-        Version currentVersion = currentResult.getTestExecution().getVersion();
-        List<TestResult> window;
+        int previousNeeded = threshold - 1;
+        List<TestResult> previousWindow;
 
         if (currentVersion != null) {
-            window = testResultRepository.findRecentResultsByTestCaseProjectAndVersion(
+            previousWindow = testResultRepository.findRecentResultsByTestCaseProjectAndVersion(
                     testCase.getId(),
                     project.getId(),
                     currentVersion.getId(),
-                    PageRequest.of(0, threshold, Sort.by(Sort.Direction.DESC, "testExecution.startTime"))
+                    PageRequest.of(0, previousNeeded, Sort.by(Sort.Direction.DESC, "testExecution.startTime"))
             ).getContent();
         } else {
-            window = testResultRepository.findRecentResultsByTestCaseAndProject(
+            previousWindow = testResultRepository.findRecentResultsByTestCaseAndProject(
                     testCase.getId(),
                     project.getId(),
-                    PageRequest.of(0, threshold, Sort.by(Sort.Direction.DESC, "testExecution.startTime"))
+                    PageRequest.of(0, previousNeeded, Sort.by(Sort.Direction.DESC, "testExecution.startTime"))
             ).getContent();
         }
 
-        if (window.size() < threshold) {
-            currentResult.setFlaky(false);
-            testResultRepository.save(currentResult);
-            return;
+        // Se ainda não temos histórico suficiente (N-1), a janela de N ainda não foi preenchida
+        if (previousWindow.size() < previousNeeded) {
+            return false;
         }
 
-        long passCount = window.stream().filter(r -> r.getResult() == TestStatus.PASS).count();
-        long failCount = window.stream().filter(r -> r.getResult() == TestStatus.FAIL).count();
+        // Inicia a contagem somando o resultado atual em memória
+        long passCount = currentStatus == TestStatus.PASS ? 1 : 0;
+        long failCount = currentStatus == TestStatus.FAIL ? 1 : 0;
 
-        currentResult.setFlaky(passCount > 0 && failCount > 0);
-        testResultRepository.save(currentResult);
+        passCount += previousWindow.stream().filter(r -> r.getResult() == TestStatus.PASS).count();
+        failCount += previousWindow.stream().filter(r -> r.getResult() == TestStatus.FAIL).count();
+
+        return passCount > 0 && failCount > 0;
     }
 
     private record ExtractionResult(String cleanError, String screenshot) {}
 
     /**
-     * Extração agnóstica de imagens!
+     * Extração de imagens
      * Procura automaticamente por padrões de Base64 (JPEG ou PNG) dentro do log de erro,
      * ignorando quebras de linha introduzidas pelo XML.
      */
@@ -151,12 +155,9 @@ public class IngestionService {
 
         if (matcher.find()) {
             screenshot = matcher.group(0).replaceAll("[\\r\\n]", "");
-
-            // Remove o Base64 gigante do log para a interface ficar limpa
             cleanError = cleanError.replace(matcher.group(0), "[EVIDENCIA_VISUAL_EXTRAIDA]");
         }
 
-        // Limpeza do formato {message=..., type=..., =STACKTRACE} do JUnit/Surefire
         if (cleanError.startsWith("{") && cleanError.contains("message=")) {
             try {
                 int msgStart = cleanError.indexOf("message=") + 8;

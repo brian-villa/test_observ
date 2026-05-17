@@ -28,7 +28,6 @@ class IngestionServiceIT extends AbstractIntegrationTest {
     @Transactional
     void shouldMarkTestAsFlakyWhenWindowContainsPassAndFail() {
         // Arrange
-        // Criar Projeto
         Project project = new Project("Flaky Project", "Desc", "flaky-token-123");
         project.setFlakyThreshold(3);
         projectRepository.save(project);
@@ -39,22 +38,18 @@ class IngestionServiceIT extends AbstractIntegrationTest {
         TestCase testCase = new TestCase("Login Test");
         testCaseRepository.save(testCase);
 
-        //  histórico de TestResults )
+        // Histórico de TestResults
         TestExecution exec1 = new TestExecution(LocalDateTime.now().minusDays(2), "main", LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(2), "UI Tests", "exec-1", "Build 1", project, version);
         testExecutionRepository.save(exec1);
-
-        TestResult result1 = new TestResult(TestStatus.FAIL, false, "Error", null, exec1, testCase);
-        testResultRepository.save(result1);
+        testResultRepository.save(new TestResult(TestStatus.FAIL, false, "Error", null, exec1, testCase));
 
         TestExecution exec2 = new TestExecution(LocalDateTime.now().minusDays(1), "main", LocalDateTime.now().minusDays(1), LocalDateTime.now().minusDays(1), "UI Tests", "exec-2", "Build 1", project, version);
         testExecutionRepository.save(exec2);
+        testResultRepository.save(new TestResult(TestStatus.PASS, false, null, null, exec2, testCase));
 
-        TestResult result2 = new TestResult(TestStatus.PASS, false, null, null, exec2, testCase);
-        testResultRepository.save(result2);
-
-        // 3. Simular o envio do 3º report que vai engatilhar a janela de 3 e marcar como flaky
-        StandardizedPipelineReport.TestCaseResult item = 
-            new StandardizedPipelineReport.TestCaseResult("Login Test", TestStatus.PASS, 500L, null);
+        // Simular o envio do 3º report
+        StandardizedPipelineReport.TestCaseResult item =
+                new StandardizedPipelineReport.TestCaseResult("Login Test", TestStatus.PASS, 500L, null);
 
         StandardizedPipelineReport report = new StandardizedPipelineReport(
                 "flaky-token-123", "v1.0", "main", LocalDateTime.now(), LocalDateTime.now(), List.of(item)
@@ -65,20 +60,68 @@ class IngestionServiceIT extends AbstractIntegrationTest {
 
         // Assert
         List<TestResult> results = testResultRepository.findAll();
-        //result criado pela ingestão
         TestResult latestResult = results.stream()
                 .filter(r -> r.getTestExecution().getRunId().equals("exec-3"))
                 .findFirst()
                 .orElseThrow();
 
         assertThat(latestResult.getResult()).isEqualTo(TestStatus.PASS);
-        assertThat(latestResult.getFlaky()).isTrue(); // Validou que havia FAIL e PASS na mesma janela
+        assertThat(latestResult.getFlaky()).isTrue();
+    }
+
+    @Test
+    @Transactional
+    void shouldRecoverFromFlakyWhenWindowBecomesStable() {
+        // Arrange
+        Project project = new Project("Recovery Project", "Desc", "recover-token-123");
+        project.setFlakyThreshold(3);
+        projectRepository.save(project);
+
+        Version version = new Version("v1.0");
+        versionRepository.save(version);
+
+        TestCase testCase = new TestCase("Payment Test");
+        testCaseRepository.save(testCase);
+
+        // O teste falhou no passado distante, mas as últimas 2 execuções passaram
+        TestExecution exec1 = new TestExecution(LocalDateTime.now().minusDays(3), "main", LocalDateTime.now().minusDays(3), LocalDateTime.now().minusDays(3), "UI Tests", "exec-1", "Build 1", project, version);
+        testExecutionRepository.save(exec1);
+        testResultRepository.save(new TestResult(TestStatus.FAIL, false, "Error", null, exec1, testCase));
+
+        TestExecution exec2 = new TestExecution(LocalDateTime.now().minusDays(2), "main", LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(2), "UI Tests", "exec-2", "Build 2", project, version);
+        testExecutionRepository.save(exec2);
+        testResultRepository.save(new TestResult(TestStatus.PASS, true, null, null, exec2, testCase)); // Marcado como flaky na altura
+
+        TestExecution exec3 = new TestExecution(LocalDateTime.now().minusDays(1), "main", LocalDateTime.now().minusDays(1), LocalDateTime.now().minusDays(1), "UI Tests", "exec-3", "Build 3", project, version);
+        testExecutionRepository.save(exec3);
+        testResultRepository.save(new TestResult(TestStatus.PASS, true, null, null, exec3, testCase)); // Ainda flaky
+
+        // A 4ª execução vai passar, preenchendo a janela de 3 com [PASS, PASS, PASS]
+        StandardizedPipelineReport.TestCaseResult item =
+                new StandardizedPipelineReport.TestCaseResult("Payment Test", TestStatus.PASS, 500L, null);
+
+        StandardizedPipelineReport report = new StandardizedPipelineReport(
+                "recover-token-123", "v1.0", "main", LocalDateTime.now(), LocalDateTime.now(), List.of(item)
+        );
+
+        // Act
+        ingestionService.ingest(report, "UI Tests", "exec-4", "Build 4");
+
+        // Assert
+        List<TestResult> results = testResultRepository.findAll();
+        TestResult latestResult = results.stream()
+                .filter(r -> r.getTestExecution().getRunId().equals("exec-4"))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(latestResult.getResult()).isEqualTo(TestStatus.PASS);
+        assertThat(latestResult.getFlaky()).isFalse(); // Recuperou! A flag flaky foi limpa.
     }
 
     @Test
     @Transactional
     void shouldCreateSeparateTestCasesForDifferentProjects() {
-        // Arrange: dois projetos com tokens distintos
+        // Arrange
         Project projectA = new Project("Project A", "Desc A", "token-project-a");
         projectA.setFlakyThreshold(3);
         projectRepository.save(projectA);
@@ -87,7 +130,6 @@ class IngestionServiceIT extends AbstractIntegrationTest {
         projectB.setFlakyThreshold(3);
         projectRepository.save(projectB);
 
-        // Ambos os projetos enviam um teste com o mesmo nome
         StandardizedPipelineReport.TestCaseResult sharedNameTest =
                 new StandardizedPipelineReport.TestCaseResult("Login Test", TestStatus.PASS, 100L, null);
 
@@ -104,7 +146,7 @@ class IngestionServiceIT extends AbstractIntegrationTest {
         ingestionService.ingest(reportA, "Suite", "exec-a-1", "Build 1");
         ingestionService.ingest(reportB, "Suite", "exec-b-1", "Build 1");
 
-        // Assert: devem existir 2 TestCase separados com o mesmo nome (um por projeto)
+        // Assert
         List<TestCase> allTestCases = testCaseRepository.findAll();
         long loginTestCount = allTestCases.stream()
                 .filter(tc -> tc.getTestName().equals("Login Test"))
