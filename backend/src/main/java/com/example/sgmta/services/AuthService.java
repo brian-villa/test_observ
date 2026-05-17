@@ -3,6 +3,9 @@ package com.example.sgmta.services;
 import com.example.sgmta.dtos.auth.LoginDTO;
 import com.example.sgmta.dtos.auth.RegisterDTO;
 import com.example.sgmta.entities.User;
+import com.example.sgmta.exceptions.ResourceConflictException;
+import com.example.sgmta.exceptions.ResourceNotFoundException;
+import com.example.sgmta.exceptions.UnauthorizedException;
 import com.example.sgmta.repositories.UserRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,7 +34,7 @@ public class AuthService {
     @Transactional
     public User register(RegisterDTO data) {
         if (userRepository.findByEmail(data.email()).isPresent()) {
-            throw new RuntimeException("Email já registado no sistema.");
+            throw new ResourceConflictException("Email já registado no sistema.");
         }
 
         String hash = passwordEncoder.encode(data.password());
@@ -44,10 +47,10 @@ public class AuthService {
      */
     public User login(LoginDTO data) {
         User user = userRepository.findByEmail(data.email())
-                .orElseThrow(() -> new RuntimeException("Credenciais inválidas."));
+                .orElseThrow(() -> new UnauthorizedException("Credenciais inválidas."));
 
         if (!passwordEncoder.matches(data.password(), user.getPassword())) {
-            throw new RuntimeException("Credenciais inválidas.");
+            throw new UnauthorizedException("Credenciais inválidas.");
         }
 
         return user;
@@ -59,10 +62,10 @@ public class AuthService {
     @Transactional
     public void updatePassword(String email, String oldPassword, String newPassword) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Utilizador não encontrado."));
+                .orElseThrow(() -> new ResourceNotFoundException("Utilizador não encontrado."));
 
         if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
-            throw new RuntimeException("A password atual está incorreta.");
+            throw new UnauthorizedException("A password atual está incorreta.");
         }
 
         user.setPassword(passwordEncoder.encode(newPassword));
@@ -75,11 +78,11 @@ public class AuthService {
     @Transactional
     public void updateEmail(String currentEmail, String newEmail) {
         if (userRepository.findByEmail(newEmail).isPresent()) {
-            throw new RuntimeException("O novo email já está em uso.");
+            throw new ResourceConflictException("O novo email já está em uso.");
         }
 
         User user = userRepository.findByEmail(currentEmail)
-                .orElseThrow(() -> new RuntimeException("Utilizador não encontrado."));
+                .orElseThrow(() -> new ResourceNotFoundException("Utilizador não encontrado."));
 
         user.setEmail(newEmail);
         userRepository.save(user);

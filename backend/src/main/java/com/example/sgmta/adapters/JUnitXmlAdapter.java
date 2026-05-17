@@ -1,6 +1,7 @@
 package com.example.sgmta.adapters;
 
 import com.example.sgmta.dtos.ingestion.StandardizedPipelineReport;
+import com.example.sgmta.exceptions.InvalidPayloadException;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.DeserializationFeature;
@@ -72,7 +73,7 @@ public class JUnitXmlAdapter implements ReportAdapter {
             );
 
         } catch (Exception e) {
-            throw new RuntimeException("Falha ao processar o formato JUnit XML: " + e.getMessage(), e);
+            throw new InvalidPayloadException("Falha ao processar o formato JUnit XML: " + e.getMessage(), e);
         }
     }
 

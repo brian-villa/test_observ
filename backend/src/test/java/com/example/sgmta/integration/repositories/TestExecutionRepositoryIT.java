@@ -36,9 +36,9 @@ class TestExecutionRepositoryIT extends AbstractIntegrationTest {
         versionRepository.save(version);
 
         // Criamos 3 execuções: 2 com a mesma Suite, 1 com Suite diferente
-        TestExecution exec1 = new TestExecution(LocalDateTime.now(), "main", LocalDateTime.now(), LocalDateTime.now(), "UI-Tests", "r1", project, version);
-        TestExecution exec2 = new TestExecution(LocalDateTime.now(), "main", LocalDateTime.now(), LocalDateTime.now(), "UI-Tests", "r2", project, version);
-        TestExecution exec3 = new TestExecution(LocalDateTime.now(), "main", LocalDateTime.now(), LocalDateTime.now(), "API-Tests", "r3", project, version);
+        TestExecution exec1 = new TestExecution(LocalDateTime.now(), "main", LocalDateTime.now(), LocalDateTime.now(), "UI-Tests", "r1", "Build 1", project, version);
+        TestExecution exec2 = new TestExecution(LocalDateTime.now(), "main", LocalDateTime.now(), LocalDateTime.now(), "UI-Tests", "r2", "Build 1", project, version);
+        TestExecution exec3 = new TestExecution(LocalDateTime.now(), "main", LocalDateTime.now(), LocalDateTime.now(), "API-Tests", "r3", "Build 1", project, version);
         
         testExecutionRepository.saveAll(List.of(exec1, exec2, exec3));
 
@@ -62,25 +62,25 @@ class TestExecutionRepositoryIT extends AbstractIntegrationTest {
         Version v2 = new Version("v2.0");
         versionRepository.saveAll(List.of(v1, v2));
 
-        TestExecution exec1 = new TestExecution(LocalDateTime.now(), "main", LocalDateTime.now(), LocalDateTime.now(), "Suite", "r1", project, v1);
-        TestExecution exec2 = new TestExecution(LocalDateTime.now(), "develop", LocalDateTime.now(), LocalDateTime.now(), "Suite", "r2", project, v1);
-        TestExecution exec3 = new TestExecution(LocalDateTime.now(), "main", LocalDateTime.now(), LocalDateTime.now(), "Suite", "r3", project, v2);
+        TestExecution exec1 = new TestExecution(LocalDateTime.now(), "main", LocalDateTime.now(), LocalDateTime.now(), "Suite", "r1", "Build 1", project, v1);
+        TestExecution exec2 = new TestExecution(LocalDateTime.now(), "develop", LocalDateTime.now(), LocalDateTime.now(), "Suite", "r2", "Build 1", project, v1);
+        TestExecution exec3 = new TestExecution(LocalDateTime.now(), "main", LocalDateTime.now(), LocalDateTime.now(), "Suite", "r3", "Build 1", project, v2);
         
         testExecutionRepository.saveAll(List.of(exec1, exec2, exec3));
 
         Pageable pageable = PageRequest.of(0, 10);
 
         // Act 1: Sem filtros extras (apenas ProjectId)
-        Page<TestExecution> allExecs = testExecutionRepository.findFilteredHistory(project.getId(), null, null, pageable);
+        Page<TestExecution> allExecs = testExecutionRepository.findFilteredHistory(project.getId(), null, null, null, pageable);
         assertThat(allExecs.getContent()).hasSize(3);
 
         // Act 2: Filtrar apenas por branch 'main'
-        Page<TestExecution> mainExecs = testExecutionRepository.findFilteredHistory(project.getId(), "main", null, pageable);
+        Page<TestExecution> mainExecs = testExecutionRepository.findFilteredHistory(project.getId(), "main", null, null, pageable);
         assertThat(mainExecs.getContent()).hasSize(2);
         assertThat(mainExecs.getContent()).extracting("branchName").containsOnly("main");
 
         // Act 3: Filtrar por branch 'main' e versão 'v1.0'
-        Page<TestExecution> specificExecs = testExecutionRepository.findFilteredHistory(project.getId(), "main", "v1.0", pageable);
+        Page<TestExecution> specificExecs = testExecutionRepository.findFilteredHistory(project.getId(), "main", "v1.0", null, pageable);
         assertThat(specificExecs.getContent()).hasSize(1);
         assertThat(specificExecs.getContent().get(0).getRunId()).isEqualTo("r1");
     }

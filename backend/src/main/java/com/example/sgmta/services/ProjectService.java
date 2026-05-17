@@ -4,9 +4,12 @@ import com.example.sgmta.dtos.project.ProjectCreateDTO;
 import com.example.sgmta.dtos.project.ProjectUpdateDTO;
 import com.example.sgmta.entities.Project;
 import com.example.sgmta.entities.User;
+import com.example.sgmta.exceptions.ResourceConflictException;
 import com.example.sgmta.repositories.ProjectRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
+import com.example.sgmta.exceptions.ResourceNotFoundException;
+import com.example.sgmta.exceptions.UnauthorizedException;
 
 import java.text.Normalizer;
 import java.util.List;
@@ -34,7 +37,7 @@ public class ProjectService {
     @Transactional
     public Project create(ProjectCreateDTO data, User creator) {
         if (projectRepository.existsByName(data.name())) {
-            throw new RuntimeException("Já existe um projeto com este nome no sistema.");
+            throw new ResourceConflictException("Já existe um projeto com este nome no sistema.");
         }
 
         String projectToken = generateTokenFromName(data.name());
@@ -57,7 +60,7 @@ public class ProjectService {
         // Se o nome for alterado, validamos se não choca com outro existente
         if (data.name() != null && !data.name().equals(project.getName())) {
             if (projectRepository.existsByName(data.name())) {
-                throw new RuntimeException("O novo nome já está em uso por outro projeto.");
+                throw new ResourceConflictException("O novo nome já está em uso por outro projeto.");
             }
             project.setName(data.name());
         }
@@ -109,7 +112,7 @@ public class ProjectService {
      */
     public Project findById(UUID id) {
         return projectRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Projeto não encontrado."));
+                .orElseThrow(() -> new ResourceNotFoundException("Projeto não encontrado."));
     }
 
     /**
@@ -120,7 +123,7 @@ public class ProjectService {
      */
     public Project findByToken(String token) {
         return projectRepository.findByProjectToken(token)
-                .orElseThrow(() -> new RuntimeException("API Key inválida ou projeto inexistente."));
+                .orElseThrow(() -> new UnauthorizedException("API Key inválida ou projeto inexistente."));
     }
 
     /**

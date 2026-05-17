@@ -33,7 +33,7 @@ class TestResultRepositoryIT extends AbstractIntegrationTest {
         Version version = new Version("v1.0");
         versionRepository.save(version);
 
-        TestExecution exec = new TestExecution(LocalDateTime.now(), "main", LocalDateTime.now(), LocalDateTime.now(), "Suite", "r1", project, version);
+        TestExecution exec = new TestExecution(LocalDateTime.now(), "main", LocalDateTime.now(), LocalDateTime.now(), "Suite", "r1", "Build 1", project, version);
         testExecutionRepository.save(exec);
 
         TestCase tc1 = new TestCase("Login Success");
@@ -41,9 +41,9 @@ class TestResultRepositoryIT extends AbstractIntegrationTest {
         TestCase tc3 = new TestCase("Logout Test");
         testCaseRepository.saveAll(List.of(tc1, tc2, tc3));
 
-        TestResult r1 = new TestResult("PASS", false, null, exec, tc1);
-        TestResult r2 = new TestResult("FAIL", false, "Error 1", exec, tc2);
-        TestResult r3 = new TestResult("FAIL", true, "Error Flaky", exec, tc3);
+        TestResult r1 = new TestResult("PASS", false, null, null, exec, tc1);
+        TestResult r2 = new TestResult("FAIL", false, "Error 1", null, exec, tc2);
+        TestResult r3 = new TestResult("FAIL", true, "Error Flaky", null, exec, tc3);
         testResultRepository.saveAll(List.of(r1, r2, r3));
 
         Pageable pageable = PageRequest.of(0, 10);
@@ -76,17 +76,17 @@ class TestResultRepositoryIT extends AbstractIntegrationTest {
         testCaseRepository.save(tc);
 
         // Execução 1 (Mais antiga)
-        TestExecution exec1 = new TestExecution(LocalDateTime.now().minusDays(2), "main", LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(2), "Suite", "r1", project, version);
+        TestExecution exec1 = new TestExecution(LocalDateTime.now().minusDays(2), "main", LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(2), "Suite", "r1", "Build 1", project, version);
         testExecutionRepository.save(exec1);
-        TestResult r1 = new TestResult("FAIL", true, "Error", exec1, tc); // Antigo era flaky
+        TestResult r1 = new TestResult("FAIL", true, "Error", null, exec1, tc); // Antigo era flaky
         testResultRepository.save(r1);
 
         // Execução 2 (Mais recente)
-        TestExecution exec2 = new TestExecution(LocalDateTime.now().minusDays(1), "main", LocalDateTime.now().minusDays(1), LocalDateTime.now().minusDays(1), "Suite", "r2", project, version);
+        TestExecution exec2 = new TestExecution(LocalDateTime.now().minusDays(1), "main", LocalDateTime.now().minusDays(1), LocalDateTime.now().minusDays(1), "Suite", "r2", "Build 1", project, version);
         testExecutionRepository.save(exec2);
         
         // Se a execução mais recente não for flaky (ex: PASS e isFlaky=false), a query não deve retornar este TestCase
-        TestResult r2 = new TestResult("PASS", false, null, exec2, tc);
+        TestResult r2 = new TestResult("PASS", false, null, null, exec2, tc);
         testResultRepository.save(r2);
 
         // Act 1: Como o mais recente é false, a query não deve retornar nada
@@ -94,9 +94,9 @@ class TestResultRepositoryIT extends AbstractIntegrationTest {
         assertThat(activeFlakys1).isEmpty();
 
         // Arrange 2: Inserir uma execução ainda mais recente onde o teste volta a ser Flaky
-        TestExecution exec3 = new TestExecution(LocalDateTime.now(), "main", LocalDateTime.now(), LocalDateTime.now(), "Suite", "r3", project, version);
+        TestExecution exec3 = new TestExecution(LocalDateTime.now(), "main", LocalDateTime.now(), LocalDateTime.now(), "Suite", "r3", "Build 1", project, version);
         testExecutionRepository.save(exec3);
-        TestResult r3 = new TestResult("PASS", true, null, exec3, tc);
+        TestResult r3 = new TestResult("PASS", true, null, null, exec3, tc);
         testResultRepository.save(r3);
 
         // Act 2: Agora o mais recente é Flaky, deve ser retornado

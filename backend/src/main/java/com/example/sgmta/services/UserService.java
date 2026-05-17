@@ -2,6 +2,7 @@ package com.example.sgmta.services;
 
 import com.example.sgmta.dtos.user.UserUpdateDTO;
 import com.example.sgmta.entities.User;
+import com.example.sgmta.exceptions.ResourceNotFoundException;
 import com.example.sgmta.repositories.UserRepository;
 
 import org.springframework.stereotype.Service;
@@ -31,7 +32,7 @@ public class UserService {
      */
     public User findById(UUID id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Utilizador não encontrado."));
+                .orElseThrow(() -> new ResourceNotFoundException("Utilizador não encontrado."));
     }
 
     /**

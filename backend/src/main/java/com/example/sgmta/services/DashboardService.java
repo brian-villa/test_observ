@@ -6,6 +6,7 @@ import com.example.sgmta.dtos.testResult.TestResultResponseDTO;
 import com.example.sgmta.entities.Project;
 import com.example.sgmta.entities.TestExecution;
 import com.example.sgmta.entities.TestResult;
+import com.example.sgmta.exceptions.ResourceNotFoundException;
 import com.example.sgmta.repositories.ProjectRepository;
 import com.example.sgmta.repositories.TestExecutionRepository;
 import com.example.sgmta.repositories.TestResultRepository;
@@ -15,6 +16,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -81,7 +83,7 @@ public class DashboardService {
     public DashboardMetricsDTO getGlobalMetrics(UUID projectId, String branchName, String versionName, String suiteName) {
 
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Projeto não encontrado"));
 
         long totalExecutions = testExecutionRepository.countByProjectId(projectId);
 
@@ -144,7 +146,7 @@ public class DashboardService {
     public DashboardMetricsDTO getBuildMetrics(UUID executionId) {
 
         TestExecution execution = testExecutionRepository.findById(executionId)
-                .orElseThrow(() -> new RuntimeException("Execução não encontrada"));
+                .orElseThrow(() -> new com.example.sgmta.exceptions.ResourceNotFoundException("Execução não encontrada"));
 
         String projectName = execution.getProject().getName();
 

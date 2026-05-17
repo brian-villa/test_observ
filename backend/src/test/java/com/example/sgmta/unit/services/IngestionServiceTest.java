@@ -46,7 +46,7 @@ class IngestionServiceTest {
         when(projectRepository.findByProjectToken("invalid-token")).thenReturn(Optional.empty());
 
         // Act & Assert
-        assertThatThrownBy(() -> ingestionService.ingest(report, "UI Tests", "exec-123"))
+        assertThatThrownBy(() -> ingestionService.ingest(report, "UI Tests", "exec-123", "Build 1"))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Projeto não encontrado para o token fornecido.");
     }
@@ -70,11 +70,11 @@ class IngestionServiceTest {
                 .thenReturn(Optional.empty());
 
         // Act
-        ingestionService.ingest(report, "UI Tests", "exec-123");
+        ingestionService.ingest(report, "UI Tests", "exec-123", "Build 1");
 
         // Assert
         verify(testExecutionService).createExecution(
-                project, version, "main", start, end, "UI Tests", "exec-123"
+                project, version, "main", start, end, "UI Tests", "exec-123", "Build 1"
         );
     }
 
@@ -102,10 +102,10 @@ class IngestionServiceTest {
         when(testExecutionRepository.save(any(TestExecution.class))).thenReturn(existingExecution);
 
         // Act
-        ingestionService.ingest(report, "UI Tests", "exec-123");
+        ingestionService.ingest(report, "UI Tests", "exec-123", "Build 1");
 
         // Assert
-        verify(testExecutionService, never()).createExecution(any(), any(), any(), any(), any(), any(), any());
+        verify(testExecutionService, never()).createExecution(any(), any(), any(), any(), any(), any(), any(), any());
         verify(testExecutionRepository).save(existingExecution);
     }
 }

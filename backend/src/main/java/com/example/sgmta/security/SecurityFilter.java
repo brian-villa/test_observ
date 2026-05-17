@@ -1,5 +1,6 @@
 package com.example.sgmta.security;
 
+import com.example.sgmta.exceptions.ResourceNotFoundException;
 import com.example.sgmta.repositories.UserRepository;
 import com.example.sgmta.services.TokenService;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -40,7 +41,7 @@ public class SecurityFilter extends OncePerRequestFilter {
             // Se o token for válido e o email existir, carregamos o utilizador
             if (!email.isEmpty()) {
                 UserDetails user = userRepository.findByEmail(email)
-                        .orElseThrow(() -> new RuntimeException("Utilizador não encontrado no filtro"));
+                        .orElseThrow(() -> new ResourceNotFoundException("Utilizador não encontrado no filtro"));
 
                 var authentication = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
 

@@ -39,16 +39,16 @@ class IngestionServiceIT extends AbstractIntegrationTest {
         testCaseRepository.save(testCase);
 
         // 2. Criar histórico de TestResults (1 FAIL, 1 PASS prévios)
-        TestExecution exec1 = new TestExecution(LocalDateTime.now().minusDays(2), "main", LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(2), "UI Tests", "exec-1", project, version);
+        TestExecution exec1 = new TestExecution(LocalDateTime.now().minusDays(2), "main", LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(2), "UI Tests", "exec-1", "Build 1", project, version);
         testExecutionRepository.save(exec1);
 
-        TestResult result1 = new TestResult("FAIL", false, "Error", exec1, testCase);
+        TestResult result1 = new TestResult("FAIL", false, "Error", null, exec1, testCase);
         testResultRepository.save(result1);
 
-        TestExecution exec2 = new TestExecution(LocalDateTime.now().minusDays(1), "main", LocalDateTime.now().minusDays(1), LocalDateTime.now().minusDays(1), "UI Tests", "exec-2", project, version);
+        TestExecution exec2 = new TestExecution(LocalDateTime.now().minusDays(1), "main", LocalDateTime.now().minusDays(1), LocalDateTime.now().minusDays(1), "UI Tests", "exec-2", "Build 1", project, version);
         testExecutionRepository.save(exec2);
 
-        TestResult result2 = new TestResult("PASS", false, null, exec2, testCase);
+        TestResult result2 = new TestResult("PASS", false, null, null, exec2, testCase);
         testResultRepository.save(result2);
 
         // 3. Simular o envio do 3º report que vai engatilhar a janela de 3 e marcar como flaky
@@ -60,7 +60,7 @@ class IngestionServiceIT extends AbstractIntegrationTest {
         );
 
         // Act
-        ingestionService.ingest(report, "UI Tests", "exec-3");
+        ingestionService.ingest(report, "UI Tests", "exec-3", "Build 1");
 
         // Assert
         List<TestResult> results = testResultRepository.findAll();

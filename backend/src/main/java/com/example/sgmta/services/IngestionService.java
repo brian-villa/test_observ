@@ -140,14 +140,10 @@ public class IngestionService {
         String cleanError = rawError;
         String screenshot = null;
 
-        // REGEX MAGIA: Procura por uma string que comece por assinatura JPEG (/9j/) ou PNG (iVBORw0)
-        // O \\r\\n permite que o Regex salte as quebras de linha do XML.
-        // Ele vai PARAR automaticamente quando encontrar um espaço (ex: " at com.example...")
         java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(?:/9j/|iVBORw0KGgo)[A-Za-z0-9+/=\\r\\n]{500,}");
         java.util.regex.Matcher matcher = pattern.matcher(cleanError);
 
         if (matcher.find()) {
-            // Extrai a imagem e remove TODAS as quebras de linha para o HTML renderizar perfeitamente
             screenshot = matcher.group(0).replaceAll("[\\r\\n]", "");
 
             // Remove o Base64 gigante do log para a interface ficar limpa

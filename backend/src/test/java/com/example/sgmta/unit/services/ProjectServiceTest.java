@@ -28,7 +28,7 @@ class ProjectServiceTest {
     @Test
     void shouldCreateProjectSuccessfully() {
         // Arrange
-        ProjectCreateDTO dto = new ProjectCreateDTO("Plataforma X", "Descrição da plataforma X");
+        ProjectCreateDTO dto = new ProjectCreateDTO("Plataforma X", "Descrição da plataforma X", 2.5);
         User mockUser = mock(User.class);
         
         when(projectRepository.existsByName(dto.name())).thenReturn(false);
@@ -48,7 +48,7 @@ class ProjectServiceTest {
     @Test
     void shouldThrowExceptionWhenProjectNameAlreadyExists() {
         // Arrange
-        ProjectCreateDTO dto = new ProjectCreateDTO("Plataforma Existente", "Descrição");
+        ProjectCreateDTO dto = new ProjectCreateDTO("Plataforma Existente", "Descrição", 2.5);
         User mockUser = mock(User.class);
         
         when(projectRepository.existsByName(dto.name())).thenReturn(true);

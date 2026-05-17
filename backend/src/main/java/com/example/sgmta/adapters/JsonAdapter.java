@@ -1,6 +1,7 @@
 package com.example.sgmta.adapters;
 
 import com.example.sgmta.dtos.ingestion.StandardizedPipelineReport;
+import com.example.sgmta.exceptions.InvalidPayloadException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -54,7 +55,7 @@ public class JsonAdapter implements ReportAdapter {
             );
 
         } catch (Exception e) {
-            throw new RuntimeException("Falha ao processar o formato JSON: " + e.getMessage(), e);
+            throw new InvalidPayloadException("Falha ao processar o formato JSON: " + e.getMessage(), e);
         }
     }
 

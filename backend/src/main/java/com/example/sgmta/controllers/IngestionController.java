@@ -2,6 +2,7 @@ package com.example.sgmta.controllers;
 
 import com.example.sgmta.adapters.ReportAdapter;
 import com.example.sgmta.dtos.ingestion.StandardizedPipelineReport;
+import com.example.sgmta.exceptions.UnsupportedMediaTypeException;
 import com.example.sgmta.services.IngestionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -40,7 +41,7 @@ public class IngestionController {
         ReportAdapter adapter = adapters.stream()
                 .filter(a -> a.supports(contentType))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Formato de conteúdo não suportado: " + contentType));
+                .orElseThrow(() -> new UnsupportedMediaTypeException("Formato de conteúdo não suportado: " + contentType));
 
         StandardizedPipelineReport report = adapter.adapt(rawPayload, token, version, branch);
 

@@ -2,9 +2,7 @@ package com.example.sgmta.unit.services;
 
 import com.example.sgmta.dtos.dashboard.DashboardMetricsDTO;
 import com.example.sgmta.entities.Project;
-import com.example.sgmta.entities.TestCase;
 import com.example.sgmta.entities.TestExecution;
-import com.example.sgmta.entities.TestResult;
 import com.example.sgmta.repositories.ProjectRepository;
 import com.example.sgmta.repositories.TestExecutionRepository;
 import com.example.sgmta.repositories.TestResultRepository;
@@ -26,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -47,7 +46,7 @@ class DashboardServiceTest {
         when(testExecutionRepository.countByProjectId(projectId)).thenReturn(0L);
 
         // Act
-        DashboardMetricsDTO result = dashboardService.getGlobalMetrics(projectId);
+        DashboardMetricsDTO result = dashboardService.getGlobalMetrics(projectId, null, null, null);
 
         // Assert
         assertThat(result.projectName()).isEqualTo("Empty Project");
@@ -62,23 +61,31 @@ class DashboardServiceTest {
         UUID projectId = UUID.randomUUID();
         Project project = new Project("Perfect Project", "Desc", "token");
         TestExecution exec = mock(TestExecution.class);
-        when(exec.getId()).thenReturn(UUID.randomUUID());
         when(exec.getStartTime()).thenReturn(LocalDateTime.now().minusMinutes(5));
 
         when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
         when(testExecutionRepository.countByProjectId(projectId)).thenReturn(1L);
-        when(testExecutionRepository.findFilteredHistory(eq(projectId), isNull(), isNull(), any(Pageable.class)))
+        when(testExecutionRepository.findLatestVersionNameByProjectId(eq(projectId), any(Pageable.class)))
+                .thenReturn(List.of("v1.0"));
+                
+        when(testExecutionRepository.findFilteredHistory(eq(projectId), isNull(), eq("v1.0"), isNull(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(exec)));
         
         // Simular 10 passed e 0 failed (100% success rate)
-        when(testResultRepository.countByTestExecutionIdAndResult(exec.getId(), "PASS")).thenReturn(10L);
-        when(testResultRepository.countByTestExecutionIdAndResult(exec.getId(), "FAIL")).thenReturn(0L);
+        when(testResultRepository.sumPassFailByVersion(eq(projectId), eq("v1.0"), isNull(), isNull()))
+                .thenReturn(List.<Object[]>of(new Object[]{10L, 0L}));
         
         // Simular 0 flakys globais
-        when(testResultRepository.findActiveFlakyTestsByProjectId(projectId)).thenReturn(List.of());
+        when(testResultRepository.countActiveFlakyByVersion(eq(projectId), eq("v1.0"), isNull(), isNull())).thenReturn(0L);
+
+        when(testResultRepository.findRecentFailuresByVersion(eq(projectId), eq("v1.0"), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(List.of());
+                
+        when(testResultRepository.findActiveFlakyTestsByVersion(eq(projectId), eq("v1.0"), isNull(), isNull()))
+                .thenReturn(List.of());
 
         // Act
-        DashboardMetricsDTO result = dashboardService.getGlobalMetrics(projectId);
+        DashboardMetricsDTO result = dashboardService.getGlobalMetrics(projectId, null, null, null);
 
         // Assert
         assertThat(result.healthScore()).isEqualTo(100); // 100% - 0
@@ -91,32 +98,31 @@ class DashboardServiceTest {
         UUID projectId = UUID.randomUUID();
         Project project = new Project("Flaky Project", "Desc", "token");
         TestExecution exec = mock(TestExecution.class);
-        when(exec.getId()).thenReturn(UUID.randomUUID());
         when(exec.getStartTime()).thenReturn(LocalDateTime.now().minusMinutes(5));
 
         when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
         when(testExecutionRepository.countByProjectId(projectId)).thenReturn(1L);
-        when(testExecutionRepository.findFilteredHistory(eq(projectId), isNull(), isNull(), any(Pageable.class)))
+        when(testExecutionRepository.findLatestVersionNameByProjectId(eq(projectId), any(Pageable.class)))
+                .thenReturn(List.of("v1.0"));
+                
+        when(testExecutionRepository.findFilteredHistory(eq(projectId), isNull(), eq("v1.0"), isNull(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(exec)));
         
         // Simular 10 passed e 0 failed (100% success rate base)
-        when(testResultRepository.countByTestExecutionIdAndResult(exec.getId(), "PASS")).thenReturn(10L);
-        when(testResultRepository.countByTestExecutionIdAndResult(exec.getId(), "FAIL")).thenReturn(0L);
+        when(testResultRepository.sumPassFailByVersion(eq(projectId), eq("v1.0"), isNull(), isNull()))
+                .thenReturn(List.<Object[]>of(new Object[]{10L, 0L}));
         
         // Simular 4 flakys globais (penalty de 4 * 2.5 = 10)
-        TestResult flaky1 = mock(TestResult.class);
-        TestResult flaky2 = mock(TestResult.class);
-        TestResult flaky3 = mock(TestResult.class);
-        TestResult flaky4 = mock(TestResult.class);
-        
-        // Precisamos mockar os TestCases para evitar NullPointer em getGlobalMetrics -> getTestCase().getTestName()
-        // Wait, activeFlakys é usado apenas para .size() no getGlobalMetrics
-        // Porém, testResultRepository.findByTestExecutionIdAndFlakyTrue(execId) é chamado
-        // Let's configure return mocks correctly.
-        when(testResultRepository.findActiveFlakyTestsByProjectId(projectId)).thenReturn(List.of(flaky1, flaky2, flaky3, flaky4));
+        when(testResultRepository.countActiveFlakyByVersion(eq(projectId), eq("v1.0"), isNull(), isNull())).thenReturn(4L);
+
+        when(testResultRepository.findRecentFailuresByVersion(eq(projectId), eq("v1.0"), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(List.of());
+                
+        when(testResultRepository.findActiveFlakyTestsByVersion(eq(projectId), eq("v1.0"), isNull(), isNull()))
+                .thenReturn(List.of());
 
         // Act
-        DashboardMetricsDTO result = dashboardService.getGlobalMetrics(projectId);
+        DashboardMetricsDTO result = dashboardService.getGlobalMetrics(projectId, null, null, null);
 
         // Assert
         // 100% base - (4 * 2.5) = 90
@@ -129,26 +135,32 @@ class DashboardServiceTest {
         UUID projectId = UUID.randomUUID();
         Project project = new Project("Bad Project", "Desc", "token");
         TestExecution exec = mock(TestExecution.class);
-        when(exec.getId()).thenReturn(UUID.randomUUID());
         when(exec.getStartTime()).thenReturn(LocalDateTime.now().minusMinutes(5));
 
         when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
         when(testExecutionRepository.countByProjectId(projectId)).thenReturn(1L);
-        when(testExecutionRepository.findFilteredHistory(eq(projectId), isNull(), isNull(), any(Pageable.class)))
+        when(testExecutionRepository.findLatestVersionNameByProjectId(eq(projectId), any(Pageable.class)))
+                .thenReturn(List.of("v1.0"));
+                
+        when(testExecutionRepository.findFilteredHistory(eq(projectId), isNull(), eq("v1.0"), isNull(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(exec)));
         
         // Simular 1 passed e 9 failed (10% success rate)
-        when(testResultRepository.countByTestExecutionIdAndResult(exec.getId(), "PASS")).thenReturn(1L);
-        when(testResultRepository.countByTestExecutionIdAndResult(exec.getId(), "FAIL")).thenReturn(9L);
+        when(testResultRepository.sumPassFailByVersion(eq(projectId), eq("v1.0"), isNull(), isNull()))
+                .thenReturn(List.<Object[]>of(new Object[]{1L, 9L}));
         
         // Simular 10 flakys globais (penalty de 10 * 2.5 = 25)
         // 10% - 25 = -15 -> Deve ser travado em 0
-        List<TestResult> flakys = mock(List.class);
-        when(flakys.size()).thenReturn(10);
-        when(testResultRepository.findActiveFlakyTestsByProjectId(projectId)).thenReturn(flakys);
+        when(testResultRepository.countActiveFlakyByVersion(eq(projectId), eq("v1.0"), isNull(), isNull())).thenReturn(10L);
+
+        when(testResultRepository.findRecentFailuresByVersion(eq(projectId), eq("v1.0"), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(List.of());
+                
+        when(testResultRepository.findActiveFlakyTestsByVersion(eq(projectId), eq("v1.0"), isNull(), isNull()))
+                .thenReturn(List.of());
 
         // Act
-        DashboardMetricsDTO result = dashboardService.getGlobalMetrics(projectId);
+        DashboardMetricsDTO result = dashboardService.getGlobalMetrics(projectId, null, null, null);
 
         // Assert
         assertThat(result.healthScore()).isEqualTo(0); // Travado no 0
@@ -159,7 +171,7 @@ class DashboardServiceTest {
         UUID projectId = UUID.randomUUID();
         when(projectRepository.findById(projectId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> dashboardService.getGlobalMetrics(projectId))
+        assertThatThrownBy(() -> dashboardService.getGlobalMetrics(projectId, null, null, null))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Projeto não encontrado");
     }

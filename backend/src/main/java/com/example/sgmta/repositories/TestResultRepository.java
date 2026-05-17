@@ -73,7 +73,7 @@ public interface TestResultRepository extends JpaRepository<TestResult, UUID> {
     List<TestResult> findActiveFlakyTestsByProjectId(@Param("projectId") UUID projectId);
 
     /**
-     * Conta Flakys dentro de uma execução garantindo que não conta o mesmo teste duas vezes (ex: Retries)
+     * Conta Flakys dentro de uma execução garantindo que não conta o mesmo teste duas vezes
      */
     @Query("SELECT COUNT(DISTINCT r.testCase.id) FROM TestResult r WHERE r.testExecution.id = :testExecutionId AND r.flaky = true")
     long countDistinctFlakyByTestExecutionId(@Param("testExecutionId") UUID testExecutionId);
@@ -99,7 +99,7 @@ public interface TestResultRepository extends JpaRepository<TestResult, UUID> {
 
     /**
      * Pesquisa Global: Procura testes pelo nome dentro de um projeto
-     * e retorna APENAS a "fotografia" mais recente desse teste.
+     * e retorna APENAS a imagem mais recente desse teste.
      */
     @Query("SELECT r FROM TestResult r " +
             "LEFT JOIN r.testExecution.version v " +

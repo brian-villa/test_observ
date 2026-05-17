@@ -1,18 +1,17 @@
 package com.example.sgmta.integration.config;
 
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.annotation.DirtiesContext;
 
+/**
+ * Classe base para todos os testes de integração.
+ * Usa uma base de dados H2 em memória (sem necessidade de Docker).
+ * O contexto é recriado entre classes de teste para garantir isolamento.
+ */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Testcontainers
+@ActiveProfiles("test")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public abstract class AbstractIntegrationTest {
-
-    @Container
-    @ServiceConnection
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
-
-    // Aqui podem ser colocados métodos utilitários, mocks globais de APIs externas, etc.
+    // Métodos utilitários partilhados podem ser adicionados aqui.
 }
