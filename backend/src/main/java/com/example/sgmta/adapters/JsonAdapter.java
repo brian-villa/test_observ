@@ -38,7 +38,7 @@ public class JsonAdapter implements ReportAdapter {
                 for (JsonTestCase test : inputData.tests()) {
                     standardizedTests.add(new StandardizedPipelineReport.TestCaseResult(
                             test.name(),
-                            test.status().toUpperCase(),
+                            com.example.sgmta.entities.enums.TestStatus.valueOf(test.status().toUpperCase()),
                             test.durationMs(),
                             test.errorMessage()
                     ));

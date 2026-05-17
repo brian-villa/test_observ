@@ -4,6 +4,7 @@ import com.example.sgmta.entities.Project;
 import com.example.sgmta.entities.TestCase;
 import com.example.sgmta.entities.TestExecution;
 import com.example.sgmta.entities.TestResult;
+import com.example.sgmta.entities.enums.TestStatus;
 import com.example.sgmta.repositories.TestResultRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,7 +24,7 @@ public class TestResultService {
     }
 
     @Transactional
-    public TestResult createResult(String resultStatus, String errorMessage, TestExecution testExecution, TestCase testCase) {
+    public TestResult createResult(TestStatus resultStatus, String errorMessage, TestExecution testExecution, TestCase testCase) {
         TestResult newResult = new TestResult(resultStatus, false, errorMessage, null, testExecution, testCase);
         return testResultRepository.save(newResult);
     }
@@ -34,7 +35,7 @@ public class TestResultService {
     }
 
     public long countFailures(TestCase testCase, Project project) {
-        return testResultRepository.countByTestCaseAndTestExecution_ProjectAndResult(testCase, project, "FAIL");
+        return testResultRepository.countByTestCaseAndTestExecution_ProjectAndResult(testCase, project, TestStatus.FAIL);
     }
 
     public List<TestResult> findAll() {
@@ -48,7 +49,8 @@ public class TestResultService {
     public Page<TestResult> findFilteredByExecutionId(UUID executionId, String searchTerm, String status, boolean flakyOnly, Pageable pageable) {
         String searchParam = (searchTerm == null || searchTerm.trim().isEmpty()) ? "" : searchTerm.trim();
         Boolean flakyParam = flakyOnly ? true : null;
+        TestStatus testStatus = (status == null || status.equalsIgnoreCase("ALL")) ? null : TestStatus.valueOf(status.toUpperCase());
 
-        return testResultRepository.findFilteredResults(executionId, searchParam, status, flakyParam, pageable);
+        return testResultRepository.findFilteredResults(executionId, searchParam, testStatus, flakyParam, pageable);
     }
 }

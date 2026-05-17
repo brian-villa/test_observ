@@ -1,6 +1,7 @@
 package com.example.sgmta.adapters;
 
 import com.example.sgmta.dtos.ingestion.StandardizedPipelineReport;
+import com.example.sgmta.entities.enums.TestStatus;
 import com.example.sgmta.exceptions.InvalidPayloadException;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.stereotype.Component;
@@ -38,7 +39,7 @@ public class JUnitXmlAdapter implements ReportAdapter {
 
             if (suite.testCases != null) {
                 for (JUnitTestCase testCase : suite.testCases) {
-                    String status = determineStatus(testCase);
+                    TestStatus status = TestStatus.valueOf(determineStatus(testCase));
                     long durationMs = (long) (testCase.time * 1000);
 
                     String fullName = testCase.classname + "." + testCase.name;

@@ -1,6 +1,7 @@
 package com.example.sgmta.dtos.ingestion;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import com.example.sgmta.entities.enums.TestStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -37,7 +38,7 @@ public record StandardizedPipelineReport(
             String testName,
 
             @Schema(description = "Status final da execução do teste", example = "PASS")
-            String status,
+            TestStatus status,
 
             @Schema(description = "Duração da execução do teste em milissegundos", example = "120")
             Long durationMs,

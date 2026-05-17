@@ -2,6 +2,7 @@ package com.example.sgmta.services;
 
 import com.example.sgmta.dtos.ingestion.StandardizedPipelineReport;
 import com.example.sgmta.entities.*;
+import com.example.sgmta.entities.enums.TestStatus;
 import com.example.sgmta.repositories.ProjectRepository;
 import com.example.sgmta.repositories.TestExecutionRepository;
 import com.example.sgmta.repositories.TestResultRepository;
@@ -118,8 +119,8 @@ public class IngestionService {
             return;
         }
 
-        long passCount = window.stream().filter(r -> "PASS".equalsIgnoreCase(r.getResult())).count();
-        long failCount = window.stream().filter(r -> "FAIL".equalsIgnoreCase(r.getResult())).count();
+        long passCount = window.stream().filter(r -> r.getResult() == TestStatus.PASS).count();
+        long failCount = window.stream().filter(r -> r.getResult() == TestStatus.FAIL).count();
 
         currentResult.setFlaky(passCount > 0 && failCount > 0);
         testResultRepository.save(currentResult);

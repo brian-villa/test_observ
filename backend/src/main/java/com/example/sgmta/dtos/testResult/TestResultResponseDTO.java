@@ -1,5 +1,7 @@
 package com.example.sgmta.dtos.testResult;
 
+import com.example.sgmta.entities.enums.TestStatus;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.UUID;
 
@@ -9,7 +11,7 @@ public record TestResultResponseDTO(
         UUID id,
 
         @Schema(description = "Status final do teste", example = "PASS")
-        String result,
+        TestStatus result,
 
         @Schema(description = "Nome do caso de teste avaliado", example = "shouldAuthenticateUser")
         String testCaseName,

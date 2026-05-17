@@ -3,6 +3,7 @@ package com.example.sgmta.services;
 import com.example.sgmta.dtos.dashboard.*;
 import com.example.sgmta.dtos.testExecution.TestExecutionSummaryDTO;
 import com.example.sgmta.dtos.testResult.TestResultResponseDTO;
+import com.example.sgmta.entities.enums.TestStatus;
 import com.example.sgmta.entities.Project;
 import com.example.sgmta.entities.TestExecution;
 import com.example.sgmta.entities.TestResult;
@@ -150,8 +151,8 @@ public class DashboardService {
 
         String projectName = execution.getProject().getName();
 
-        long passed = testResultRepository.countByTestExecutionIdAndResult(execution.getId(), "PASS");
-        long failed = testResultRepository.countByTestExecutionIdAndResult(execution.getId(), "FAIL");
+        long passed = testResultRepository.countByTestExecutionIdAndResult(execution.getId(), TestStatus.PASS);
+        long failed = testResultRepository.countByTestExecutionIdAndResult(execution.getId(), TestStatus.FAIL);
         long total = passed + failed;
 
         long activeFlakysInBuild = testResultRepository.countDistinctFlakyByTestExecutionId(execution.getId());
@@ -166,7 +167,7 @@ public class DashboardService {
         String executionTime = formatTimeAgo(execution.getStartTime());
 
         List<TestFailureSummaryDTO> buildFailures = testResultRepository
-                .findByTestExecutionIdAndResult(execution.getId(), "FAIL")
+                .findByTestExecutionIdAndResult(execution.getId(), TestStatus.FAIL)
                 .stream().limit(10)
                 .map(r -> new TestFailureSummaryDTO(r.getId(), r.getTestCase().getTestName(), r.getResult()))
                 .collect(Collectors.toList());
@@ -193,7 +194,7 @@ public class DashboardService {
                 durationMillis = java.time.Duration.between(execution.getStartTime(), execution.getEndTime()).toMillis();
             }
             String resolvedVersionName = execution.getVersion() != null ? execution.getVersion().getVersionName() : "N/A";
-            boolean hasFailures = testResultRepository.existsByTestExecutionIdAndResult(execution.getId(), "FAIL");
+            boolean hasFailures = testResultRepository.existsByTestExecutionIdAndResult(execution.getId(), TestStatus.FAIL);
 
             return new TestExecutionSummaryDTO(
                     execution.getId(),
@@ -203,8 +204,8 @@ public class DashboardService {
                     execution.getStartTime(),
                     durationMillis,
                     hasFailures,
-                    testResultRepository.countByTestExecutionIdAndResult(execution.getId(), "PASS"),
-                    testResultRepository.countByTestExecutionIdAndResult(execution.getId(), "FAIL"),
+                    testResultRepository.countByTestExecutionIdAndResult(execution.getId(), TestStatus.PASS),
+                    testResultRepository.countByTestExecutionIdAndResult(execution.getId(), TestStatus.FAIL),
                     testResultRepository.countDistinctFlakyByTestExecutionId(execution.getId()),
                     execution.getSuiteName(),
                     execution.getRunId()

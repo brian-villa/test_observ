@@ -3,6 +3,7 @@ package com.example.sgmta.repositories;
 import com.example.sgmta.entities.Project;
 import com.example.sgmta.entities.TestCase;
 import com.example.sgmta.entities.TestResult;
+import com.example.sgmta.entities.enums.TestStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -19,40 +20,40 @@ public interface TestResultRepository extends JpaRepository<TestResult, UUID> {
      * Conta o número de falhas de um Caso de Teste específico dentro de um Projeto.
      * Navega: TestResult -> TestExecution -> Project
      */
-    long countByTestCaseAndTestExecution_ProjectAndResult(TestCase testCase, Project project, String result);
+    long countByTestCaseAndTestExecution_ProjectAndResult(TestCase testCase, Project project, TestStatus result);
 
     /**
      * Conta os resultados (PASS/FAIL) pela Execução e pelo Projeto.
      */
-    long countByTestExecutionIdAndResult(UUID testExecutionId, String result);
+    long countByTestExecutionIdAndResult(UUID testExecutionId, TestStatus result);
 
     /**
      * Traz todos os resultados associados a uma Execução específica.
      */
     List<TestResult> findByTestExecutionId(UUID testExecutionId);
 
-    List<TestResult> findByTestExecutionIdAndResult(UUID testExecutionId, String result);
+    List<TestResult> findByTestExecutionIdAndResult(UUID testExecutionId, TestStatus result);
 
     /**
      * Verifica de forma rápida se existe pelo menos um resultado com um estado específico ("FAIL")
      * associado a uma determinada execução.
      */
-    boolean existsByTestExecutionIdAndResult(UUID testExecutionId, String result);
+    boolean existsByTestExecutionIdAndResult(UUID testExecutionId, TestStatus result);
 
     @Query(value = "SELECT tr FROM TestResult tr " +
             "WHERE tr.testExecution.id = :executionId " +
             "AND (:searchTerm IS NULL OR LOWER(tr.testCase.testName) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) " +
-            "AND (:status = 'ALL' OR tr.result = :status) " +
+            "AND (:status IS NULL OR tr.result = :status) " +
             "AND (:isFlaky IS NULL OR tr.flaky = :isFlaky)",
             countQuery = "SELECT count(tr) FROM TestResult tr " +
                     "WHERE tr.testExecution.id = :executionId " +
                     "AND (:searchTerm IS NULL OR LOWER(tr.testCase.testName) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) " +
-                    "AND (:status = 'ALL' OR tr.result = :status) " +
+                    "AND (:status IS NULL OR tr.result = :status) " +
                     "AND (:isFlaky IS NULL OR tr.flaky = :isFlaky)")
     Page<TestResult> findFilteredResults(
             @Param("executionId") UUID executionId,
             @Param("searchTerm") String searchTerm,
-            @Param("status") String status,
+            @Param("status") TestStatus status,
             @Param("isFlaky") Boolean isFlaky,
             Pageable pageable
     );
@@ -133,8 +134,8 @@ public interface TestResultRepository extends JpaRepository<TestResult, UUID> {
      * Usado para construir a Pirâmide de Testes no dashboard.
      */
     @Query("SELECT te.suiteName, " +
-            "SUM(CASE WHEN r.result = 'PASS' THEN 1 ELSE 0 END), " +
-            "SUM(CASE WHEN r.result = 'FAIL' THEN 1 ELSE 0 END), " +
+            "SUM(CASE WHEN r.result = com.example.sgmta.entities.enums.TestStatus.PASS THEN 1 ELSE 0 END), " +
+            "SUM(CASE WHEN r.result = com.example.sgmta.entities.enums.TestStatus.FAIL THEN 1 ELSE 0 END), " +
             "COUNT(DISTINCT te.buildName) " +
             "FROM TestResult r " +
             "JOIN r.testExecution te " +
@@ -156,8 +157,8 @@ public interface TestResultRepository extends JpaRepository<TestResult, UUID> {
      * Conta o total de testes (PASS + FAIL) de todas as builds dentro de uma versão, por suite.
      * Usado para calcular o health score da versão.
      */
-    @Query("SELECT SUM(CASE WHEN r.result = 'PASS' THEN 1 ELSE 0 END), " +
-            "SUM(CASE WHEN r.result = 'FAIL' THEN 1 ELSE 0 END) " +
+    @Query("SELECT SUM(CASE WHEN r.result = com.example.sgmta.entities.enums.TestStatus.PASS THEN 1 ELSE 0 END), " +
+            "SUM(CASE WHEN r.result = com.example.sgmta.entities.enums.TestStatus.FAIL THEN 1 ELSE 0 END) " +
             "FROM TestResult r " +
             "JOIN r.testExecution te " +
             "LEFT JOIN te.version v " +
@@ -223,7 +224,7 @@ public interface TestResultRepository extends JpaRepository<TestResult, UUID> {
             "JOIN r.testExecution te " +
             "LEFT JOIN te.version v " +
             "WHERE te.project.id = :projectId " +
-            "AND r.result = 'FAIL' " +
+            "AND r.result = com.example.sgmta.entities.enums.TestStatus.FAIL " +
             "AND (:versionName IS NULL OR v.versionName = :versionName) " +
             "AND (:branchName IS NULL OR te.branchName = :branchName) " +
             "AND (:suiteName IS NULL OR te.suiteName = :suiteName) " +

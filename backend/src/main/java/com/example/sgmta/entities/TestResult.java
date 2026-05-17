@@ -1,5 +1,7 @@
 package com.example.sgmta.entities;
 
+import com.example.sgmta.entities.enums.TestStatus;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -19,9 +21,10 @@ public class TestResult {
     @Schema(description = "Identificador único do resultado", example = "123e4567-e89b-12d3-a456-426614174000")
     private UUID id;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "result", nullable = false)
     @Schema(description = "O resultado do teste.", example = "PASS")
-    private String result;
+    private TestStatus result;
 
     @Column(name = "flaky", nullable = false)
     @Schema(description = "Indica se o teste é flaky ou não.", example = "false")
@@ -47,7 +50,7 @@ public class TestResult {
 
     protected TestResult() {}
 
-    public TestResult(String result, Boolean flaky, String errorMessage, String screenshot, TestExecution testExecution, TestCase testCase) {
+    public TestResult(TestStatus result, Boolean flaky, String errorMessage, String screenshot, TestExecution testExecution, TestCase testCase) {
         this.result = result;
         this.flaky = flaky;
         this.errorMessage = errorMessage;

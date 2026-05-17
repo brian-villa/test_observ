@@ -2,6 +2,7 @@ package com.example.sgmta.integration.services;
 
 import com.example.sgmta.dtos.ingestion.StandardizedPipelineReport;
 import com.example.sgmta.entities.*;
+import com.example.sgmta.entities.enums.TestStatus;
 import com.example.sgmta.integration.config.AbstractIntegrationTest;
 import com.example.sgmta.repositories.*;
 import com.example.sgmta.services.IngestionService;
@@ -42,18 +43,18 @@ class IngestionServiceIT extends AbstractIntegrationTest {
         TestExecution exec1 = new TestExecution(LocalDateTime.now().minusDays(2), "main", LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(2), "UI Tests", "exec-1", "Build 1", project, version);
         testExecutionRepository.save(exec1);
 
-        TestResult result1 = new TestResult("FAIL", false, "Error", null, exec1, testCase);
+        TestResult result1 = new TestResult(TestStatus.FAIL, false, "Error", null, exec1, testCase);
         testResultRepository.save(result1);
 
         TestExecution exec2 = new TestExecution(LocalDateTime.now().minusDays(1), "main", LocalDateTime.now().minusDays(1), LocalDateTime.now().minusDays(1), "UI Tests", "exec-2", "Build 1", project, version);
         testExecutionRepository.save(exec2);
 
-        TestResult result2 = new TestResult("PASS", false, null, null, exec2, testCase);
+        TestResult result2 = new TestResult(TestStatus.PASS, false, null, null, exec2, testCase);
         testResultRepository.save(result2);
 
         // 3. Simular o envio do 3º report que vai engatilhar a janela de 3 e marcar como flaky
         StandardizedPipelineReport.TestCaseResult item = 
-            new StandardizedPipelineReport.TestCaseResult("Login Test", "PASS", 500L, null);
+            new StandardizedPipelineReport.TestCaseResult("Login Test", TestStatus.PASS, 500L, null);
 
         StandardizedPipelineReport report = new StandardizedPipelineReport(
                 "flaky-token-123", "v1.0", "main", LocalDateTime.now(), LocalDateTime.now(), List.of(item)
@@ -70,7 +71,7 @@ class IngestionServiceIT extends AbstractIntegrationTest {
                 .findFirst()
                 .orElseThrow();
 
-        assertThat(latestResult.getResult()).isEqualTo("PASS");
+        assertThat(latestResult.getResult()).isEqualTo(TestStatus.PASS);
         assertThat(latestResult.getFlaky()).isTrue(); // Validou que havia FAIL e PASS na mesma janela
     }
 }
