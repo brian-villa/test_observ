@@ -1,5 +1,4 @@
 <div align="center">
-  <img src="https://via.placeholder.com/150x150.png?text=SGMTA+Logo" alt="SGMTA Logo" width="150"/>
 
   # SGMTA
   **Automated Test Management and Monitoring System**
